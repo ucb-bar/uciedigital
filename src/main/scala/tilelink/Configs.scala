@@ -56,7 +56,7 @@ trait CanHaveTLUCIAdapter { this: BaseSubsystem =>
     case None => None
   }
   val ucie_io = uciTL.map { uci => InModuleBody {
-  val ucie_io = IO(new UcieDigitalTopIO)
+  val ucie_io = IO(new UcieDigitalTopIO())
   ucie_io <> uci.module.io 
   ucie_io
 }}

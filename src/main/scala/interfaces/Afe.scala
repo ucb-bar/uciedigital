@@ -49,6 +49,7 @@ case class AfeParams(
     sbWidth: Int = 1,
     mbSerializerRatio: Int = 16,
     mbLanes: Int = 16,
+    STANDALONE: Boolean = true
 )
 
 /** The sideband analog front-end (AFE) interface, from the perspective of the
