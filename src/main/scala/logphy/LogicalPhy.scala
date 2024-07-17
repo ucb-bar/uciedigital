@@ -75,6 +75,8 @@ class LogicalPhy(
   lanes.io.mainbandIo.fifoParams <> io.mbAfe.fifoParams
   rdiDataMapper.io.mainbandLaneIO <> lanes.io.mainbandLaneIO
 
+  /** TODO: need to hook up lane scrambling boolean to states */
+
   /** Connect RDI to Mainband IO */
   rdiDataMapper.io.rdi.lpData <> io.rdi.lpData
   io.rdi.plData <> rdiDataMapper.io.rdi.plData
@@ -86,7 +88,6 @@ class LogicalPhy(
     "connecting sideband module directly to training module, sb serializer ratio must be 1!",
   )
 
-  /** TODO: Double check that this is the right direction */
   sidebandChannel.io.to_upper_layer.tx.bits <> io.rdi.plConfig.bits
   sidebandChannel.io.to_upper_layer.tx.valid <> io.rdi.plConfig.valid
   sidebandChannel.io.to_upper_layer.tx.credit <> io.rdi.plConfigCredit
@@ -101,9 +102,7 @@ class LogicalPhy(
   sidebandChannel.io.inner.inputMode := trainingModule.io.sidebandFSMIO.txMode
   sidebandChannel.io.inner.rxMode := trainingModule.io.sidebandFSMIO.rxMode
 
-  /** TODO: layer to node above not connected? Not sure when might receive SB
-    * packet from above layer
-    */
+  /** Currently no situation where would receive SB packet from above layer. */
   sidebandChannel.io.inner.switcherBundle.layer_to_node_above.noenq()
   sidebandChannel.io.inner.switcherBundle.node_to_layer_above.nodeq()
 

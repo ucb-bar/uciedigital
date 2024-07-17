@@ -9,7 +9,6 @@ import chisel3.util._
 /** Implementation TODOs:
   *   - investigate multiple message source issue
   *   - implement plStallReq
-  *   - implement lpStateReq
   */
 
 case class LinkTrainingParams(
@@ -61,7 +60,9 @@ class LinkTrainingFSM(
     val currentState = Output(LinkTrainingState())
   })
 
-  val patternGenerator = Module(new PatternGenerator(afeParams, sbParams))
+  val patternGenerator = Module(
+    new PatternGenerator(afeParams, sbParams, maxPatternCount = 1024),
+  )
   val sbMsgWrapper = Module(new SBMsgWrapper(sbParams))
 
   private val msgSource = WireInit(MsgSource.PATTERN_GENERATOR)
@@ -120,7 +121,6 @@ class LinkTrainingFSM(
   rdiBringup.io.sbTrainIO.msgReqStatus.noenq()
   val plStateStatus = WireInit(rdiBringup.io.rdiIO.plStateStatus)
 
-  // TODO: incorporate lpstatereq
   currentState := PriorityMux(
     Seq(
       (rdiBringup.io.rdiIO.plStateStatus === PhyState.reset, nextState),
@@ -138,12 +138,6 @@ class LinkTrainingFSM(
       ),
     ),
   )
-  // currentState := Mux(
-  //   plStateStatus === PhyState.reset,
-  //   nextState,
-  /* Mux(plStateStatus === PhyState.linkError, LinkTrainingState.linkError,
-   * Mux(plStateStatus === )), */
-  // )
   io.sidebandFSMIO.rxMode := Mux(
     currentState === LinkTrainingState.sbInit &&
       (sbInitSubState === SBInitSubState.SEND_CLOCK ||
@@ -229,7 +223,7 @@ class LinkTrainingFSM(
 
       switch(sbInitSubState) {
         is(SBInitSubState.SEND_CLOCK) {
-          patternGenerator.io.patternGeneratorIO.transmitReq.bits.pattern := TransmitPattern.CLOCK_64_LOW_32
+          patternGenerator.io.patternGeneratorIO.transmitReq.bits.pattern := TransmitPattern.CLOCK
           patternGenerator.io.patternGeneratorIO.transmitReq.bits.sideband := true.B
 
           /** Timeout occurs after 8ms */

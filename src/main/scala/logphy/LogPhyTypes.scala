@@ -47,7 +47,7 @@ object ClockModeParam extends ChiselEnum {
 }
 
 object TransmitPattern extends ChiselEnum {
-  val CLOCK_64_LOW_32 = Value(0.U)
+  val CLOCK, VALTRAIN, LFSR, PER_LANE_ID = Value
 }
 
 class SBIO(params: AfeParams) extends Bundle {

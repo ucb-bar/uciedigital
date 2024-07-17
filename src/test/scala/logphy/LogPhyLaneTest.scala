@@ -8,16 +8,15 @@ import freechips.rocketchip.util.AsyncQueueParams
 import org.scalatest.flatspec.AnyFlatSpec
 import interfaces._
 
+import scala.util.Random
+
 class LogPhyLaneTest extends AnyFlatSpec with ChiselScalatestTester {
   val afeParams = AfeParams()
   val queueParams = new AsyncQueueParams()
-  behavior of "log phy TX lanes"
+  behavior of "log phy TX lanes no scramble"
   it should "correctly map TX bytes to their lanes" in {
     test(new SimLanes(afeParams, queueParams)) { c =>
-      c.io.mainbandLaneIO.txData.initSource()
-      c.io.mainbandLaneIO.txData.setSourceClock(c.clock)
-      c.io.mainbandIo.txData.initSink()
-      c.io.mainbandIo.txData.setSinkClock(c.clock)
+      initPorts(c, false)
 
       c.io.mainbandLaneIO.txData.enqueueNow(
         "h1234_5678_9abc_def0_0fed_cba9_8765_4321_1111_2222_3333_4444_5555_6666_7777_8888".U,
@@ -25,34 +24,31 @@ class LogPhyLaneTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.mainbandIo.txData
         .expectDequeueNow(
           Vec.Lit(
-            "h1211".U,
-            "h3411".U,
-            "h5622".U,
-            "h7822".U,
-            "h9a33".U,
-            "hbc33".U,
-            "hde44".U,
-            "hf044".U,
-            "h0f55".U,
-            "hed55".U,
-            "hcb66".U,
-            "ha966".U,
-            "h8777".U,
-            "h6577".U,
-            "h4388".U,
             "h2188".U,
+            "h4388".U,
+            "h6577".U,
+            "h8777".U,
+            "ha966".U,
+            "hcb66".U,
+            "hed55".U,
+            "h0f55".U,
+            "hf044".U,
+            "hde44".U,
+            "hbc33".U,
+            "h9a33".U,
+            "h7822".U,
+            "h5622".U,
+            "h3411".U,
+            "h1211".U,
           ),
         )
     }
   }
 
-  behavior of "log phy RX lanes"
+  behavior of "log phy RX lanes no scramble"
   it should "correctly map RX bytes to their lanes" in {
     test(new SimLanes(afeParams, queueParams)) { c =>
-      c.io.mainbandIo.rxData.initSource()
-      c.io.mainbandIo.rxData.setSourceClock(c.clock)
-      c.io.mainbandLaneIO.rxData.initSink()
-      c.io.mainbandLaneIO.rxData.setSinkClock(c.clock)
+      initPorts(c, scramble = false)
 
       c.io.mainbandIo.rxData
         .enqueueNow(
@@ -75,12 +71,141 @@ class LogPhyLaneTest extends AnyFlatSpec with ChiselScalatestTester {
             "h2188".U,
           ),
         )
-
       c.io.mainbandLaneIO.rxData.expectDequeueNow(
-        "h1234_5678_9abc_def0_0fed_cba9_8765_4321_1111_2222_3333_4444_5555_6666_7777_8888".U,
+        "h2143_6587_a9cb_ed0f_f0de_bc9a_7856_3412_8888_7777_6666_5555_4444_3333_2222_1111".U,
       )
 
     }
+  }
 
+  behavior of "log phy TX lanes scramble"
+  it should "correctly map TX bytes to their lanes" in {
+    test(new SimLanes(afeParams, queueParams)) { c =>
+      initPorts(c, scramble = true)
+
+      c.io.mainbandLaneIO.txData.enqueueNow(
+        "h1234_5678_9abc_def0_0fed_cba9_8765_4321_1111_2222_3333_4444_5555_6666_7777_8888".U,
+      )
+
+      c.clock.step()
+
+      c.io.mainbandIo.txData
+        .expectDequeueNow(
+          Vec.Lit(
+            "b1001111000110100".U, // "h2188".U  ^ "1011_1111_1011_1100".U,
+            "b100010000110011".U, // "h4388".U  ^ "b0000_0111_1011_1011".U,
+            "b1010001000010111".U, // "h6577".U  ^ "b1100011101100000".U
+            "b100011110101100".U, // "h8777".U   ^ "0b1100000011011011".U
+            "b1010011001110100".U, // "ha966".U   ^ "0b0000111100010010".U
+            "b10010101111".U, // "hcb66".U    ^ "0b1100111111001001".U
+            "b1001101010011011".U, // "hed55".U   ^ "0b0111011111001110".U
+            "b1011011101010010".U, // "h0f55".U    ^ "0b1011100000000111".U
+
+            "b100111111111000".U, // "hf044".U  ^ "b1011_1111_1011_1100"
+            "b1101100111111111".U, // "hde44".U ^ "b0000_0111_1011_1011"
+            "b111101101010011".U, // "hbc33".U,   ^ "b1100011101100000".U
+            "b101101011101000".U, // "h9a33".U ^ "0b1100000011011011".U
+            "b111011100110000".U, // "h7822".U, ^ "0b0000111100010010".U
+            "b1001100111101011".U, // "h5622".U,  ^ "0b1100111111001001".U
+            "b100001111011111".U, // "h3411".U, ^ "0b0111011111001110".U
+            "b1010101000010110".U, // "h1211".U, ^ "0b1011100000000111".U
+          ),
+        )
+
+      println()
+      println()
+      println()
+
+      c.io.mainbandLaneIO.txData.enqueueNow(
+        "h1234_5678_9abc_def0_0fed_cba9_8765_4321_1111_2222_3333_4444_5555_6666_7777_8888".U,
+      )
+
+      c.clock.step()
+
+      c.io.mainbandIo.txData
+        .expectDequeueNow(
+          Vec.Lit(
+            "b100110010101".U, // "h2188".U   ^ "0b0010100000011101".U
+            "b1110111000001110".U, // "h4388".U  ^ "0b1010110110000110".U
+            "b1101101101101001".U, // "h6577".U   ^ "1011_1110_0001_1110".U
+            "b1001010011101111".U, // "h8777".U   ^ "0001_0011_1001_1000".U
+            "b1110100001100111".U, // "ha966".U   ^ "0100_0001_0000_0001".U
+            "b1001100111111111".U, // "hcb66".U    ^ "0101001010011001".U
+            "b11101001010111".U, // "hed55".U   ^ "1101011100000010".U
+            "b1000101011001110".U, // "h0f55".U    ^ "1000010110011011".U
+
+            "b1101100001011001".U, // "hf044".U  ^ "0b0010100000011101"
+            "b111001111000010".U, // "hde44".U ^ "0b1010110110000110"
+            "b1000101101".U, // "hbc33".U,   ^ "1011_1110_0001_1110".U
+            "b1000100110101011".U, // "h9a33".U ^ "0001_0011_1001_1000".U
+            "b11100100100011".U, // "h7822".U, ^ "0100_0001_0000_0001".U
+            "b10010111011".U, // "h5622".U,  ^ "0101001010011001".U
+            "b1110001100010011".U, // "h3411".U, ^ "1101011100000010".U
+            "b1001011110001010".U, // "h1211".U, ^ "1000010110011011".U
+          ),
+        )
+
+    }
+  }
+
+  it should "tx data matches rx data" in {
+    test(new LanesLoopBack(afeParams, queueParams)) { c =>
+      c.io.mainbandLaneIO.txData.initSource()
+      c.io.mainbandLaneIO.txData.setSourceClock(c.clock)
+      c.io.mainbandLaneIO.rxData.initSink()
+      c.io.mainbandLaneIO.rxData.setSinkClock(c.clock)
+      c.io.scramble.poke(true.B)
+
+      val rand = new Random()
+      for (i <- 0 until 20) {
+        println("i: ", i)
+        val dataEnqueued =
+          BigInt(afeParams.mbLanes * afeParams.mbSerializerRatio, rand)
+            .U((afeParams.mbLanes * afeParams.mbSerializerRatio).W)
+        c.io.mainbandLaneIO.txData.enqueueNow(
+          dataEnqueued,
+        )
+        c.clock.step()
+        c.io.mainbandLaneIO.rxData.expectDequeueNow(
+          dataEnqueued,
+        )
+        c.clock.step()
+
+      }
+
+    }
+  }
+
+  private def initPorts(c: SimLanes, scramble: Boolean): Unit = {
+    c.io.mainbandLaneIO.txData.initSource()
+    c.io.mainbandLaneIO.txData.setSourceClock(c.clock)
+    c.io.mainbandLaneIO.rxData.initSink()
+    c.io.mainbandLaneIO.rxData.setSinkClock(c.clock)
+    c.io.mainbandIo.txData.initSink()
+    c.io.mainbandIo.txData.setSinkClock(c.clock)
+    c.io.mainbandIo.rxData.initSource()
+    c.io.mainbandIo.rxData.setSourceClock(c.clock)
+    c.io.scramble.poke(scramble.B)
+  }
+
+}
+
+class LanesLoopBack(
+    afeParams: AfeParams,
+    queueParams: AsyncQueueParams,
+) extends Module {
+  val io = IO(new Bundle {
+    val scramble = Input(Bool())
+    val mainbandLaneIO = new MainbandLaneIO(afeParams)
+  })
+  val lanes = Module(new SimLanes(afeParams, queueParams))
+  lanes.io.scramble := io.scramble
+  lanes.io.mainbandLaneIO <> io.mainbandLaneIO
+  lanes.io.mainbandIo.txData <> lanes.io.mainbandIo.rxData
+  when(io.mainbandLaneIO.rxData.fire) {
+    printf("rxDataBits: %x\n", io.mainbandLaneIO.rxData.bits)
+  }
+  when(io.mainbandLaneIO.txData.fire) {
+    printf("txDataBits: %x\n", io.mainbandLaneIO.txData.bits)
   }
 }
