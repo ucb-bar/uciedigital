@@ -25,7 +25,7 @@ class UcieDigitalTopIO(mbLanes: Int = 16, STANDALONE: Boolean = true) extends Bu
      val afeParams = AfeParams()
      val mbAfe_tx = if (STANDALONE) Some(Output(new MainbandIo(mbLanes))) else None
      val mbAfe_rx = if (STANDALONE) Some(Input(new MainbandIo(mbLanes))) else None
-     val phyAfe = if (STANDALONE) None else Some(new MainbandLaneIO(afeParams))
+     val phyAfe = if (STANDALONE) None else Some(Flipped(new MainbandLaneIO(afeParams)))
      val rxSbAfe = Input(new SidebandIo())
      val txSbAfe = Output(new SidebandIo())
      //val mbAfe = new MainbandAfeIo(afeParams)

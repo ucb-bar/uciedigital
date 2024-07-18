@@ -18,7 +18,7 @@ class LogicalPhy(
   val io = IO(new Bundle {
     val rdi = Flipped(new Rdi(rdiParams))
     val mbAfe = if (afeParams.STANDALONE) Some(new MainbandAfeIo(afeParams)) else None
-    val phyAfe = if (afeParams.STANDALONE) None else Some(new MainbandLaneIO(afeParams))
+    val phyAfe = if (afeParams.STANDALONE) None else Some(Flipped(new MainbandLaneIO(afeParams)))
     val sbAfe = new SidebandAfeIo(afeParams)
   })
 
@@ -28,9 +28,9 @@ class LogicalPhy(
     )
   }
 
-  trainingModule.io.mainbandFSMIO.pllLock <> io.mbAfe.get.pllLock
+  if (afeParams.STANDALONE) {trainingModule.io.mainbandFSMIO.pllLock <> io.mbAfe.get.pllLock }
   trainingModule.io.sidebandFSMIO.pllLock <> io.sbAfe.pllLock
-  trainingModule.io.mainbandFSMIO.rxEn <> io.mbAfe.get.rxEn
+  if (afeParams.STANDALONE) {trainingModule.io.mainbandFSMIO.rxEn <> io.mbAfe.get.rxEn }
   trainingModule.io.sidebandFSMIO.rxEn <> io.sbAfe.rxEn
   trainingModule.io.rdi.rdiBringupIO.lpStateReq <> io.rdi.lpStateReq
 
@@ -51,7 +51,7 @@ class LogicalPhy(
 
   io.rdi.plPhyInRecenter := io.rdi.plStateStatus === PhyState.retrain
   io.rdi.plSpeedMode <> trainingModule.io.mainbandFSMIO.txFreqSel
-  io.mbAfe.get.txFreqSel <> trainingModule.io.mainbandFSMIO.txFreqSel
+  if (afeParams.STANDALONE) { io.mbAfe.get.txFreqSel <> trainingModule.io.mainbandFSMIO.txFreqSel }
   io.rdi.plLinkWidth := PhyWidth.width16
   io.rdi.plClkReq <> trainingModule.io.rdi.rdiBringupIO.plClkReq
   io.rdi.plWakeAck <> trainingModule.io.rdi.rdiBringupIO.plWakeAck
