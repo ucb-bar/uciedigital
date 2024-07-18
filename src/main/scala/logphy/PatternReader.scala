@@ -39,7 +39,6 @@ class PatternReader(
   when(io.request.valid && !readInProgress) {
     readInProgress := true.B
   }
-  when(readInProgress) {}
 
   /** increment error count */
   val errorCount = RegInit(0.U(maxPatternWidth.W))
@@ -78,6 +77,7 @@ class PatternReader(
         errorCounter.io.req.bits.input := io.mbRxData.bits
         errorCounter.io.req.bits.pattern := io.request.bits.pattern
         errorCounter.io.req.valid := true.B
+        patternDetectedCount := patternDetectedCount + (afeParams.mbLanes * afeParams.mbSerializerRatio).U
       }
     }
   }
