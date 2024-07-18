@@ -18,11 +18,12 @@ case class MBTrainingParams(
 class MBInitFSM(
     linkTrainingParams: LinkTrainingParams,
     afeParams: AfeParams,
+    maxPatternCount: Int,
 ) extends Module {
 
   val io = IO(new Bundle {
     val sbTrainIO = Flipped(new SBMsgWrapperTrainIO)
-    val patternGeneratorIO = Flipped(new PatternGeneratorIO)
+    val patternGeneratorIO = Flipped(new PatternGeneratorIO(maxPatternCount))
     val transition = Output(Bool())
     val error = Output(Bool())
   })

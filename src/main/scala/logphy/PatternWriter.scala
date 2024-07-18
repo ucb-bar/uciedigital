@@ -6,13 +6,17 @@ import chisel3.util._
 import sideband.SidebandParams
 import interfaces._
 
-class PatternWriter(sbParams: SidebandParams, afeParams: AfeParams)
-    extends Module {
+class PatternWriter(
+    sbParams: SidebandParams,
+    afeParams: AfeParams,
+    maxPatternCount: Int,
+) extends Module {
+  val maxPatternCountWidth = log2Ceil(maxPatternCount + 1)
   val io = IO(new Bundle {
     val request = Flipped(Valid(new Bundle {
       val pattern = TransmitPattern()
       val sideband = Bool()
-      val patternCountMax = UInt(32.W)
+      val patternCountMax = UInt(maxPatternCountWidth.W)
     }))
     val resp = Output(new Bundle {
       val complete = Bool()
@@ -37,7 +41,7 @@ class PatternWriter(sbParams: SidebandParams, afeParams: AfeParams)
     ),
   )
 
-  val patternWrittenCount = RegInit(0.U(32.W))
+  val patternWrittenCount = RegInit(0.U(maxPatternCountWidth.W))
   io.resp.complete := patternWrittenCount >= io.request.bits.patternCountMax
   val patternWritten = WireInit(false.B)
 

@@ -12,7 +12,7 @@ class PatternWriterTest extends AnyFlatSpec with ChiselScalatestTester {
   val sbParams = SidebandParams()
   behavior of "sideband pattern writer"
   it should "send SB clock pattern" in {
-    test(new PatternWriter(sbParams, afeParams)) { c =>
+    test(new PatternWriter(sbParams, afeParams, maxPatternCount = 2048)) { c =>
       initPorts(c)
       createRequest(
         c,
@@ -37,7 +37,7 @@ class PatternWriterTest extends AnyFlatSpec with ChiselScalatestTester {
   }
 
   it should "send MB LFSR pattern" in {
-    test(new PatternWriter(sbParams, afeParams)) { c =>
+    test(new PatternWriter(sbParams, afeParams, maxPatternCount = 2048)) { c =>
       initPorts(c)
       createRequest(
         c,
@@ -74,7 +74,7 @@ class PatternWriterTest extends AnyFlatSpec with ChiselScalatestTester {
   }
 
   it should "send MB valtrain pattern" in {
-    test(new PatternWriter(sbParams, afeParams)) { c =>
+    test(new PatternWriter(sbParams, afeParams, maxPatternCount = 2048)) { c =>
       initPorts(c)
       createRequest(
         c,
@@ -100,7 +100,7 @@ class PatternWriterTest extends AnyFlatSpec with ChiselScalatestTester {
   }
 
   it should "send MB per-lane ID pattern" in {
-    test(new PatternWriter(sbParams, afeParams)) { c =>
+    test(new PatternWriter(sbParams, afeParams, maxPatternCount = 2048)) { c =>
       initPorts(c)
       createRequest(
         c,

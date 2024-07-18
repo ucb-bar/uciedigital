@@ -24,7 +24,6 @@ class PatternGeneratorTest extends AnyFlatSpec with ChiselScalatestTester {
       testClockPatternSideband(c)
     }
   }
-
   it should "detect clock pattern no delay twice" in {
     test(
       new PatternGenerator(
@@ -55,15 +54,19 @@ class PatternGeneratorTest extends AnyFlatSpec with ChiselScalatestTester {
   }
 
   private def testClockPatternSideband(c: PatternGenerator): Unit = {
+    val length = 2
+
     c.io.patternGeneratorIO.transmitReq.ready.expect(true)
     c.io.sidebandLaneIO.rxData.ready.expect(false)
+    c.io.mainbandLaneIO.rxData.ready.expect(false)
     c.io.sidebandLaneIO.txData.expectInvalid()
+    c.io.mainbandLaneIO.txData.expectInvalid()
     c.io.patternGeneratorIO.transmitPatternStatus.expectInvalid()
-    c.clock.step()
-
     c.io.patternGeneratorIO.transmitReq.enqueueNow(
       chiselTypeOf(c.io.patternGeneratorIO.transmitReq.bits).Lit(
         _.pattern -> TransmitPattern.CLOCK,
+        _.patternCountMax -> (length * sbParams.sbNodeMsgWidth).U,
+        _.patternDetectedCountMax -> (length * sbParams.sbNodeMsgWidth).U,
         _.timeoutCycles -> 80.U,
         _.sideband -> true.B,
       ),

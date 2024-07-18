@@ -106,7 +106,7 @@ class MainbandLaneIO(
   )
 
   val rxData =
-    Valid(Bits((afeParams.mbLanes * afeParams.mbSerializerRatio).W))
+    Decoupled(Bits((afeParams.mbLanes * afeParams.mbSerializerRatio).W))
 }
 
 class SidebandLaneIO(

@@ -17,6 +17,7 @@ case class LinkTrainingParams(
     maxSBMessageSize: Int = 128,
     mbTrainingParams: MBTrainingParams = MBTrainingParams(),
     sbClockFreqAnalog: Int = 800_000_000,
+    maxPatternCount: Int = 1 << 32,
 )
 
 class SidebandFSMIO(
@@ -111,6 +112,7 @@ class LinkTrainingFSM(
     new MBInitFSM(
       linkTrainingParams,
       afeParams,
+      maxPatternCount = linkTrainingParams.maxPatternCount,
     ),
   )
   mbInit.reset := ((nextState === LinkTrainingState.mbInit) && (currentState =/= LinkTrainingState.mbInit)) || reset.asBool

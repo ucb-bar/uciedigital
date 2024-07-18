@@ -96,7 +96,7 @@ class MBInitFSMTest extends AnyFlatSpec with ChiselScalatestTester {
   behavior of "MBInitFSM"
   it should "perform parameter exchange -- basic sim" in {
     test(
-      new MBInitFSM(linkTrainingParams, afeParams),
+      new MBInitFSM(linkTrainingParams, afeParams, maxPatternCount = 1 << 32),
     ) { c =>
       initializePorts(c)
       initialCheck(c)
@@ -113,7 +113,7 @@ class MBInitFSMTest extends AnyFlatSpec with ChiselScalatestTester {
   behavior of "MBInitFSM"
   it should "perform parameter exchange with delays" in {
     test(
-      new MBInitFSM(linkTrainingParams, afeParams),
+      new MBInitFSM(linkTrainingParams, afeParams, maxPatternCount = 1 << 32),
     ) { c =>
       initializePorts(c)
       initialCheck(c)
@@ -139,7 +139,7 @@ class MBInitFSMTest extends AnyFlatSpec with ChiselScalatestTester {
   behavior of "MBInitFSM"
   it should "timeout" in {
     test(
-      new MBInitFSM(linkTrainingParams, afeParams),
+      new MBInitFSM(linkTrainingParams, afeParams, maxPatternCount = 1 << 32),
     ) { c =>
       c.clock.setTimeout((0.008 * sbClockFreq).toInt + 20)
       initializePorts(c)
