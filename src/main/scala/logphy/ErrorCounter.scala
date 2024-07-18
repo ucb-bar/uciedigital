@@ -5,6 +5,7 @@ import chisel3._
 import chisel3.util._
 import interfaces.AfeParams
 
+/** TODO: need to do per-lane, not just aggregate */
 class ErrorCounter(afeParams: AfeParams) extends Module {
   val width = afeParams.mbLanes * afeParams.mbSerializerRatio
 

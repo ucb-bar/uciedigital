@@ -15,7 +15,10 @@ class PatternGeneratorIO(maxPatternCount: Int) extends Bundle {
     val patternCountMax = UInt(maxPatternCountWidth.W)
     val patternDetectedCountMax = UInt(maxPatternCountWidth.W)
   }))
-  val transmitPatternStatus = Decoupled(MessageRequestStatusType())
+  val resp = Decoupled(new Bundle {
+    val status = MessageRequestStatusType()
+    val errorCount = UInt(maxPatternCountWidth.W)
+  })
 
 }
 
@@ -66,8 +69,9 @@ class PatternGenerator(
   patternReader.io.request.valid := inputsValid
 
   io.patternGeneratorIO.transmitReq.ready := (inProgress === false.B)
-  io.patternGeneratorIO.transmitPatternStatus.valid := statusValid
-  io.patternGeneratorIO.transmitPatternStatus.bits := status
+  io.patternGeneratorIO.resp.valid := statusValid
+  io.patternGeneratorIO.resp.bits.status := status
+  io.patternGeneratorIO.resp.bits.errorCount := patternReader.io.resp.errorCount
 
   when(io.patternGeneratorIO.transmitReq.fire) {
     pattern := io.patternGeneratorIO.transmitReq.bits.pattern
@@ -79,7 +83,7 @@ class PatternGenerator(
     statusValid := false.B
   }
 
-  when(io.patternGeneratorIO.transmitPatternStatus.fire) {
+  when(io.patternGeneratorIO.resp.fire) {
     statusValid := false.B
   }
 

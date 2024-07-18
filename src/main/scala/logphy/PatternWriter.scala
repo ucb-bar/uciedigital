@@ -99,7 +99,6 @@ class PatternWriter(
               .asTypeOf(VecInit(Seq.fill(ratioBytes)(0.U(8.W))))(i)
           }
         }
-        printf(cf"patternBytes = $patternBytes\n")
         patternToTransmit := patternBytes.asUInt
         when(patternWritten) {
           lfsrPatternGenerator.io.valid := true.B

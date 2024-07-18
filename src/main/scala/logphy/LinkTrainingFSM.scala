@@ -70,7 +70,7 @@ class LinkTrainingFSM(
   // io.mainbandLaneIO <> patternGenerator.io.mainbandLaneIO
 
   patternGenerator.io.patternGeneratorIO.transmitReq.noenq()
-  patternGenerator.io.patternGeneratorIO.transmitPatternStatus.nodeq()
+  patternGenerator.io.patternGeneratorIO.resp.nodeq()
   sbMsgWrapper.io.trainIO.msgReq.noenq()
   sbMsgWrapper.io.trainIO.msgReqStatus.nodeq()
 
@@ -155,7 +155,7 @@ class LinkTrainingFSM(
   mbInit.io.sbTrainIO.msgReq.nodeq()
   mbInit.io.sbTrainIO.msgReqStatus.noenq()
   mbInit.io.patternGeneratorIO.transmitReq.nodeq()
-  mbInit.io.patternGeneratorIO.transmitPatternStatus.noenq()
+  mbInit.io.patternGeneratorIO.resp.noenq()
 
   /** TODO: should these ever be false? */
   io.sidebandFSMIO.rxEn := true.B
@@ -240,13 +240,13 @@ class LinkTrainingFSM(
           }
         }
         is(SBInitSubState.WAIT_CLOCK) {
-          patternGenerator.io.patternGeneratorIO.transmitPatternStatus.ready := true.B
+          patternGenerator.io.patternGeneratorIO.resp.ready := true.B
           msgSource := MsgSource.PATTERN_GENERATOR
           when(
-            patternGenerator.io.patternGeneratorIO.transmitPatternStatus.fire,
+            patternGenerator.io.patternGeneratorIO.resp.fire,
           ) {
             switch(
-              patternGenerator.io.patternGeneratorIO.transmitPatternStatus.bits,
+              patternGenerator.io.patternGeneratorIO.resp.bits.status,
             ) {
               is(MessageRequestStatusType.SUCCESS) {
                 sbInitSubState := SBInitSubState.SB_OUT_OF_RESET_EXCH

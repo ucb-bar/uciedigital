@@ -55,7 +55,7 @@ class MBInitFSM(
   io.sbTrainIO.msgReq.noenq()
   io.sbTrainIO.msgReqStatus.nodeq()
   io.patternGeneratorIO.transmitReq.noenq()
-  io.patternGeneratorIO.transmitPatternStatus.nodeq()
+  io.patternGeneratorIO.resp.nodeq()
 
   /** Initialize params */
   private val voltageSwing = RegInit(

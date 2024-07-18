@@ -249,7 +249,7 @@ class MBInitFSMTest extends AnyFlatSpec with ChiselScalatestTester {
     c.io.sbTrainIO.msgReq.initSink().setSinkClock(c.clock)
     c.io.sbTrainIO.msgReqStatus.initSource().setSourceClock(c.clock)
     c.io.patternGeneratorIO.transmitReq.initSink().setSinkClock(c.clock)
-    c.io.patternGeneratorIO.transmitPatternStatus
+    c.io.patternGeneratorIO.resp
       .initSource()
       .setSourceClock(c.clock)
   }
