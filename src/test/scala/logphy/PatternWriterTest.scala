@@ -2,6 +2,7 @@ package edu.berkeley.cs.ucie.digital
 package logphy
 
 import chisel3._
+import chisel3.experimental.VecLiterals.AddObjectLiteralConstructor
 import sideband.SidebandParams
 import interfaces._
 import chiseltest._
@@ -17,7 +18,6 @@ class PatternWriterTest extends AnyFlatSpec with ChiselScalatestTester {
       createRequest(
         c,
         TransmitPattern.CLOCK,
-        sideband = true,
         patternCountMax = 512,
       )
 
@@ -36,35 +36,100 @@ class PatternWriterTest extends AnyFlatSpec with ChiselScalatestTester {
     }
   }
 
+  val lfsrVals = Seq(
+    Seq(
+      BigInt("bfbc", 16),
+      BigInt("07bb", 16),
+      BigInt("c760", 16),
+      BigInt("c0db", 16),
+      BigInt("0f12", 16),
+      BigInt("cfc9", 16),
+      BigInt("77ce", 16),
+      BigInt("b807", 16),
+      BigInt("bfbc", 16),
+      BigInt("07bb", 16),
+      BigInt("c760", 16),
+      BigInt("c0db", 16),
+      BigInt("0f12", 16),
+      BigInt("cfc9", 16),
+      BigInt("77ce", 16),
+      BigInt("b807", 16),
+    ),
+    Seq(
+      BigInt("281d", 16),
+      BigInt("ad86", 16),
+      BigInt("be1e", 16),
+      BigInt("1398", 16),
+      BigInt("4101", 16),
+      BigInt("5299", 16),
+      BigInt("d702", 16),
+      BigInt("859b", 16),
+      BigInt("281d", 16),
+      BigInt("ad86", 16),
+      BigInt("be1e", 16),
+      BigInt("1398", 16),
+      BigInt("4101", 16),
+      BigInt("5299", 16),
+      BigInt("d702", 16),
+      BigInt("859b", 16),
+    ),
+    Seq(
+      BigInt("28b8", 16),
+      BigInt("84d3", 16),
+      BigInt("e496", 16),
+      BigInt("6045", 16),
+      BigInt("b083", 16),
+      BigInt("d0c6", 16),
+      BigInt("7cad", 16),
+      BigInt("ac6b", 16),
+      BigInt("28b8", 16),
+      BigInt("84d3", 16),
+      BigInt("e496", 16),
+      BigInt("6045", 16),
+      BigInt("b083", 16),
+      BigInt("d0c6", 16),
+      BigInt("7cad", 16),
+      BigInt("ac6b", 16),
+    ),
+    Seq(
+      BigInt("8c54", 16),
+      BigInt("3f5e", 16),
+      BigInt("2bc1", 16),
+      BigInt("149f", 16),
+      BigInt("b083", 16),
+      BigInt("a41c", 16),
+      BigInt("1716", 16),
+      BigInt("b30a", 16),
+      BigInt("8c54", 16),
+      BigInt("3f5e", 16),
+      BigInt("2bc1", 16),
+      BigInt("149f", 16),
+      BigInt("b083", 16),
+      BigInt("a41c", 16),
+      BigInt("1716", 16),
+      BigInt("b30a", 16),
+    ),
+  )
   it should "send MB LFSR pattern" in {
     test(new PatternWriter(sbParams, afeParams, maxPatternCount = 2048)) { c =>
       initPorts(c)
       createRequest(
         c,
         TransmitPattern.LFSR,
-        false,
         afeParams.mbSerializerRatio * afeParams.mbLanes * 4,
       )
 
+      val lfsrValVecs = lfsrVals.map(f =>
+        Vec.Lit(f.map(_.U(afeParams.mbSerializerRatio.W)): _*),
+      )
+
       c.clock.step()
-      val mbWidth = afeParams.mbSerializerRatio * afeParams.mbLanes
-      val lfsrValues =
-        Seq(
-          "hb877_cf0f_c0c7_07bf_b877_cf0f_c0c7_07bf_07ce_c912_db60_bbbc_07ce_c912_db60_bbbc"
-            .U(mbWidth.W),
-          "h85d7_5241_13be_ad28_85d7_5241_13be_ad28_9b02_9901_981e_861d_9b02_9901_981e_861d"
-            .U(mbWidth.W),
-          "hac7c_d0b0_60e4_8428_ac7c_d0b0_60e4_8428_6bad_c683_4596_d3b8_6bad_c683_4596_d3b8"
-            .U(mbWidth.W),
-          "hb317_a4b0_142b_3f8c_b317_a4b0_142b_3f8c_0a16_1c83_9fc1_5e54_0a16_1c83_9fc1_5e54"
-            .U(mbWidth.W),
-        )
       for (i <- 0 until 4) {
         c.io.sbTxData.expectInvalid()
         c.io.resp.complete.expect(false.B)
         c.io.resp.inProgress.expect(true.B)
         c.io.mbTxData.expectDequeueNow(
-          lfsrValues(i),
+          lfsrValVecs(i),
         )
       }
 
@@ -74,23 +139,34 @@ class PatternWriterTest extends AnyFlatSpec with ChiselScalatestTester {
   }
 
   it should "send MB valtrain pattern" in {
-    test(new PatternWriter(sbParams, afeParams, maxPatternCount = 2048)) { c =>
+    val maxPatternCount = 2048
+    test(
+      new PatternWriter(sbParams, afeParams, maxPatternCount = maxPatternCount),
+    ) { c =>
       initPorts(c)
+      val patternCountMax = 512
       createRequest(
         c,
         TransmitPattern.VALTRAIN,
-        sideband = false,
-        patternCountMax = 512,
+        patternCountMax = patternCountMax,
+      )
+
+      val numVecs =
+        patternCountMax / (afeParams.mbLanes * afeParams.mbSerializerRatio)
+
+      val valtrain = Seq.fill(numVecs)(
+        Seq.fill(afeParams.mbLanes)(
+          BigInt("11110000" * (afeParams.mbSerializerRatio / 8), 2),
+        ),
       )
 
       c.clock.step()
-      val width = afeParams.mbSerializerRatio * afeParams.mbLanes
-      for (_ <- 0 until 512 / width) {
+      for (i <- 0 until numVecs) {
         c.io.sbTxData.expectInvalid()
         c.io.resp.complete.expect(false.B)
         c.io.resp.inProgress.expect(true.B)
         c.io.mbTxData.expectDequeueNow(
-          ("b" + "1111_0000" * (width / 8)).U,
+          Vec.Lit(valtrain(i).map(_.U(afeParams.mbSerializerRatio.W)): _*),
         )
       }
 
@@ -102,37 +178,24 @@ class PatternWriterTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "send MB per-lane ID pattern" in {
     test(new PatternWriter(sbParams, afeParams, maxPatternCount = 2048)) { c =>
       initPorts(c)
+      val numVecs = 5
+      val perLaneVec = Seq.fill(numVecs)(
+        Seq.tabulate(afeParams.mbLanes)(i => BigInt("A" + f"$i%02X" + "A", 16)),
+      )
+
       createRequest(
         c,
         TransmitPattern.PER_LANE_ID,
-        false,
-        512,
+        numVecs * afeParams.mbSerializerRatio * afeParams.mbLanes,
       )
 
       c.clock.step()
-      val width = afeParams.mbSerializerRatio * afeParams.mbLanes
-      for (_ <- 0 until 512 / width) {
+      for (i <- 0 until numVecs) {
         c.io.sbTxData.expectInvalid()
         c.io.resp.complete.expect(false.B)
         c.io.resp.inProgress.expect(true.B)
         c.io.mbTxData.expectDequeueNow(
-          ("b" +
-            "1010_0000_1111_1010" +
-            "1010_0000_1110_1010" +
-            "1010_0000_1101_1010" +
-            "1010_0000_1100_1010" +
-            "1010_0000_1011_1010" +
-            "1010_0000_1010_1010" +
-            "1010_0000_1001_1010" +
-            "1010_0000_1000_1010" +
-            "1010_0000_0111_1010" +
-            "1010_0000_0110_1010" +
-            "1010_0000_0101_1010" +
-            "1010_0000_0100_1010" +
-            "1010_0000_0011_1010" +
-            "1010_0000_0010_1010" +
-            "1010_0000_0001_1010" +
-            "1010_0000_0000_1010").U,
+          Vec.Lit(perLaneVec(i).map(_.U(afeParams.mbSerializerRatio.W)): _*),
         )
       }
 
@@ -144,12 +207,10 @@ class PatternWriterTest extends AnyFlatSpec with ChiselScalatestTester {
   private def createRequest(
       c: PatternWriter,
       transmitPattern: TransmitPattern.Type,
-      sideband: Boolean,
       patternCountMax: Int,
   ): Unit = {
     c.io.request.valid.poke(true.B)
     c.io.request.bits.pattern.poke(transmitPattern)
-    c.io.request.bits.sideband.poke(sideband.B)
     c.io.request.bits.patternCountMax.poke(patternCountMax.U)
     c.io.resp.complete.expect(false.B)
     c.io.resp.inProgress.expect(false.B)

@@ -7,14 +7,17 @@ import interfaces.AfeParams
 
 /** TODO: need to do per-lane, not just aggregate */
 class ErrorCounter(afeParams: AfeParams) extends Module {
-  val width = afeParams.mbLanes * afeParams.mbSerializerRatio
 
   val io = IO(new Bundle {
     val req = Flipped(Valid(new Bundle {
       val pattern = TransmitPattern()
-      val input = Input(UInt(width.W))
+      val input = Input(
+        Vec(afeParams.mbLanes, UInt(afeParams.mbSerializerRatio.W)),
+      )
     }))
-    val errorCount = Output(UInt(log2Ceil(width + 1).W))
+    val errorCount = Output(
+      Vec(afeParams.mbLanes, UInt(log2Ceil(afeParams.mbSerializerRatio + 1).W)),
+    )
   })
 
   val lfsr = Module(
@@ -26,7 +29,11 @@ class ErrorCounter(afeParams: AfeParams) extends Module {
     Seq.fill(afeParams.mbLanes)(0.U(afeParams.mbSerializerRatio.W)),
   )
 
-  val expected = WireInit(0.U(width.W))
+  val expected = WireInit(
+    VecInit(
+      Seq.fill(afeParams.mbLanes)(0.U(afeParams.mbSerializerRatio.W)),
+    ),
+  )
 
   /** Assign expected value */
   switch(io.req.bits.pattern) {
@@ -34,18 +41,7 @@ class ErrorCounter(afeParams: AfeParams) extends Module {
       assert(!io.req.valid, "Cannot do error count with sideband clock pattern")
     }
     is(TransmitPattern.LFSR) {
-      val ratioBytes = afeParams.mbSerializerRatio / 8
-      val patternBytes = VecInit(
-        Seq.fill(afeParams.mbLanes * ratioBytes)(0.U(8.W)),
-      )
-      for (i <- 0 until ratioBytes) {
-        for (j <- 0 until afeParams.mbLanes) {
-          patternBytes(i * afeParams.mbLanes + j) := lfsr.io
-            .data_out(j)
-            .asTypeOf(VecInit(Seq.fill(ratioBytes)(0.U(8.W))))(i)
-        }
-      }
-      expected := patternBytes.asUInt
+      expected := lfsr.io.data_out
     }
     is(TransmitPattern.PER_LANE_ID) {
       val perLaneId = VecInit(Seq.fill(afeParams.mbLanes)(0.U(16.W)))
@@ -61,7 +57,7 @@ class ErrorCounter(afeParams: AfeParams) extends Module {
           patternVec(i)(j) := perLaneId(i)
         }
       }
-      expected := patternVec.asUInt
+      expected := patternVec.asTypeOf(expected)
     }
     is(TransmitPattern.VALTRAIN) {
       val valtrain = VecInit(
@@ -69,13 +65,17 @@ class ErrorCounter(afeParams: AfeParams) extends Module {
           "b1111_0000".U(8.W),
         ),
       )
-      expected := valtrain.asUInt
+      expected := valtrain.asTypeOf(expected)
     }
   }
 
   /** count errors */
-  val diffVec = Wire(Vec(width, UInt(1.W)))
-  diffVec := (expected ^ io.req.bits.input).asTypeOf(diffVec)
-  io.errorCount := diffVec.reduceTree(_ +& _)
+  val diffVec = Wire(
+    Vec(afeParams.mbLanes, Vec(afeParams.mbSerializerRatio, UInt(1.W))),
+  )
+  for (i <- 0 until afeParams.mbLanes) {
+    diffVec(i) := (expected(i) ^ io.req.bits.input(i)).asTypeOf(diffVec(i))
+    io.errorCount(i) := diffVec(i).reduceTree(_ +& _)
+  }
 
 }

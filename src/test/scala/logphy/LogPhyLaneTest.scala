@@ -196,7 +196,7 @@ class LanesLoopBack(
 ) extends Module {
   val io = IO(new Bundle {
     val scramble = Input(Bool())
-    val mainbandLaneIO = new MainbandLaneIO(afeParams)
+    val mainbandLaneIO = new MainbandIO(afeParams)
   })
   val lanes = Module(new SimLanes(afeParams, queueParams))
   lanes.io.scramble := io.scramble

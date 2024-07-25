@@ -15,7 +15,6 @@ class PatternWriter(
   val io = IO(new Bundle {
     val request = Flipped(Valid(new Bundle {
       val pattern = TransmitPattern()
-      val sideband = Bool()
       val patternCountMax = UInt(maxPatternCountWidth.W)
     }))
     val resp = Output(new Bundle {
@@ -24,7 +23,7 @@ class PatternWriter(
     })
     val sbTxData = Decoupled(Bits(sbParams.sbNodeMsgWidth.W))
     val mbTxData =
-      Decoupled(Bits((afeParams.mbLanes * afeParams.mbSerializerRatio).W))
+      Decoupled(Vec(afeParams.mbLanes, Bits(afeParams.mbSerializerRatio.W)))
   })
 
   private val writeInProgress = RegInit(false.B)
@@ -33,30 +32,33 @@ class PatternWriter(
     writeInProgress := true.B
   }
 
-  val patternToTransmit = WireInit(
-    0.U(
-      (afeParams.mbLanes * afeParams.mbSerializerRatio)
-        .max(sbParams.sbNodeMsgWidth)
-        .W,
-    ),
+  val sbPatternToTransmit = WireInit(
+    0.U(sbParams.sbNodeMsgWidth.W),
+  )
+
+  val mbPatternToTransmit = VecInit(
+    Seq.fill(afeParams.mbLanes)(0.U(afeParams.mbSerializerRatio.W)),
   )
 
   val patternWrittenCount = RegInit(0.U(maxPatternCountWidth.W))
   io.resp.complete := patternWrittenCount >= io.request.bits.patternCountMax
   val patternWritten = WireInit(false.B)
 
+  /** Only sideband pattern is clock */
+  val sideband = io.request.bits.pattern === TransmitPattern.CLOCK
+
   io.sbTxData.noenq()
   io.mbTxData.noenq()
-  when(!io.request.bits.sideband) {
+  when(!sideband) {
     io.mbTxData.valid := writeInProgress
-    io.mbTxData.bits := patternToTransmit
+    io.mbTxData.bits := mbPatternToTransmit
     when(io.mbTxData.fire) {
       patternWrittenCount := patternWrittenCount + (afeParams.mbLanes * afeParams.mbSerializerRatio).U
       patternWritten := true.B
     }
   }.otherwise {
     io.sbTxData.valid := writeInProgress
-    io.sbTxData.bits := patternToTransmit
+    io.sbTxData.bits := sbPatternToTransmit
     when(io.sbTxData.fire) {
       patternWrittenCount := patternWrittenCount + sbParams.sbNodeMsgWidth.U
       patternWritten := true.B
@@ -84,22 +86,11 @@ class PatternWriter(
           * bits of regular clock data TODO: currently not long enough to use in
           * MB, if ever used in MB need to make longer
           */
-        patternToTransmit := "haaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa".U
+
+        sbPatternToTransmit := "haaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa".U
       }
       is(TransmitPattern.LFSR) {
-        assert(io.request.bits.sideband === false.B)
-        val ratioBytes = afeParams.mbSerializerRatio / 8
-        val patternBytes = VecInit(
-          Seq.fill(afeParams.mbLanes * ratioBytes)(0.U(8.W)),
-        )
-        for (i <- 0 until ratioBytes) {
-          for (j <- 0 until afeParams.mbLanes) {
-            patternBytes(i * afeParams.mbLanes + j) := lfsrPatternGenerator.io
-              .data_out(j)
-              .asTypeOf(VecInit(Seq.fill(ratioBytes)(0.U(8.W))))(i)
-          }
-        }
-        patternToTransmit := patternBytes.asUInt
+        mbPatternToTransmit := lfsrPatternGenerator.io.data_out
         when(patternWritten) {
           lfsrPatternGenerator.io.valid := true.B
         }
@@ -110,7 +101,7 @@ class PatternWriter(
             "b1111_0000".U(8.W),
           ),
         )
-        patternToTransmit := valtrain.asUInt
+        mbPatternToTransmit := valtrain.asTypeOf(mbPatternToTransmit)
       }
       is(TransmitPattern.PER_LANE_ID) {
         val perLaneId = VecInit(Seq.fill(afeParams.mbLanes)(0.U(16.W)))
@@ -126,7 +117,7 @@ class PatternWriter(
             patternVec(i)(j) := perLaneId(i)
           }
         }
-        patternToTransmit := patternVec.asUInt
+        mbPatternToTransmit := patternVec.asTypeOf(mbPatternToTransmit)
       }
 
     }

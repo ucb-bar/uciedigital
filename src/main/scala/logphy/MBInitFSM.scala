@@ -23,7 +23,8 @@ class MBInitFSM(
 
   val io = IO(new Bundle {
     val sbTrainIO = Flipped(new SBMsgWrapperTrainIO)
-    val patternGeneratorIO = Flipped(new PatternGeneratorIO(maxPatternCount))
+    val patternGeneratorIO =
+      Flipped(new PatternGeneratorIO(afeParams, maxPatternCount))
     val transition = Output(Bool())
     val error = Output(Bool())
   })
@@ -110,15 +111,13 @@ class MBInitFSM(
           if (req) SBM.MBINIT_PARAM_CONFIG_REQ
           else SBM.MBINIT_PARAM_CONFIG_RESP,
           "PHY",
-          false,
+          true,
           "PHY",
           data,
         )
 
-        // msgReq.msgTypeHasData := true.B
         msgReq.timeoutCycles := (0.008 * sbClockFreq).toInt.U
-        // msgReq.reqType := (if (req) MessageRequestType.MSG_REQ
-        //                    else MessageRequestType.MSG_RESP)
+        msgReq.reqType := MessageRequestType.EXCHANGE
         msgReq
       }
 

@@ -32,6 +32,14 @@ class SBMsgWrapperTest extends AnyFlatSpec with ChiselScalatestTester {
     }
   }
 
+  it should "correctly receive only" in {
+    test(new SBMsgWrapper(sbParams)) { c =>
+      /** TODO */
+      assert(false)
+    }
+
+  }
+
   private def testSBInitOutOfReset(c: SBMsgWrapper): Unit = {
     c.io.laneIO.rxData.ready.expect(false)
     c.io.laneIO.txData.expectInvalid()
@@ -50,7 +58,7 @@ class SBMsgWrapperTest extends AnyFlatSpec with ChiselScalatestTester {
     c.io.trainIO.msgReq.enqueueNow(
       (new MessageRequest).Lit(
         _.msg -> sbMsg.U,
-        // _.reqType -> MessageRequestType.MSG_EXCH,
+        _.reqType -> MessageRequestType.EXCHANGE,
         _.timeoutCycles -> 80.U,
       ),
     )

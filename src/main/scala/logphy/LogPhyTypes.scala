@@ -28,10 +28,14 @@ class SBReqMsg extends Bundle {
   val msg = UInt(128.W)
 }
 
+object MessageRequestType extends ChiselEnum {
+  val EXCHANGE, RECEIVE = Value
+}
+
 class MessageRequest extends Bundle {
   val msg = UInt(128.W)
   val timeoutCycles = UInt(64.W)
-  // val msgTypeHasData = Bool()
+  val reqType = MessageRequestType()
 }
 
 class MessageRequestStatus extends Bundle {
@@ -68,7 +72,7 @@ class SBIO(params: AfeParams) extends Bundle {
   val rxData = Flipped(Decoupled(Bits(params.sbSerializerRatio.W)))
 }
 
-class MainbandIO(
+class MainbandLaneIO(
     afeParams: AfeParams,
 ) extends Bundle {
 
@@ -95,7 +99,7 @@ class MainbandIO(
   )
 }
 
-class MainbandLaneIO(
+class MainbandIO(
     afeParams: AfeParams,
 ) extends Bundle {
 

@@ -2,18 +2,105 @@ package edu.berkeley.cs.ucie.digital
 package logphy
 
 import chisel3._
+import chisel3.util._
+import chisel3.experimental.VecLiterals.AddObjectLiteralConstructor
 import sideband.SidebandParams
 import interfaces._
 import chiseltest._
 import org.scalatest.flatspec.AnyFlatSpec
+
+import scala.collection.mutable
+
 class PatternReaderTest extends AnyFlatSpec with ChiselScalatestTester {
   val afeParams = AfeParams()
   val sbParams = SidebandParams()
+
+  val lfsrVals = Seq(
+    Seq(
+      BigInt("bfbc", 16),
+      BigInt("07bb", 16),
+      BigInt("c760", 16),
+      BigInt("c0db", 16),
+      BigInt("0f12", 16),
+      BigInt("cfc9", 16),
+      BigInt("77ce", 16),
+      BigInt("b807", 16),
+      BigInt("bfbc", 16),
+      BigInt("07bb", 16),
+      BigInt("c760", 16),
+      BigInt("c0db", 16),
+      BigInt("0f12", 16),
+      BigInt("cfc9", 16),
+      BigInt("77ce", 16),
+      BigInt("b807", 16),
+    ),
+    Seq(
+      BigInt("281d", 16),
+      BigInt("ad86", 16),
+      BigInt("be1e", 16),
+      BigInt("1398", 16),
+      BigInt("4101", 16),
+      BigInt("5299", 16),
+      BigInt("d702", 16),
+      BigInt("859b", 16),
+      BigInt("281d", 16),
+      BigInt("ad86", 16),
+      BigInt("be1e", 16),
+      BigInt("1398", 16),
+      BigInt("4101", 16),
+      BigInt("5299", 16),
+      BigInt("d702", 16),
+      BigInt("859b", 16),
+    ),
+    Seq(
+      BigInt("28b8", 16),
+      BigInt("84d3", 16),
+      BigInt("e496", 16),
+      BigInt("6045", 16),
+      BigInt("b083", 16),
+      BigInt("d0c6", 16),
+      BigInt("7cad", 16),
+      BigInt("ac6b", 16),
+      BigInt("28b8", 16),
+      BigInt("84d3", 16),
+      BigInt("e496", 16),
+      BigInt("6045", 16),
+      BigInt("b083", 16),
+      BigInt("d0c6", 16),
+      BigInt("7cad", 16),
+      BigInt("ac6b", 16),
+    ),
+    Seq(
+      BigInt("8c54", 16),
+      BigInt("3f5e", 16),
+      BigInt("2bc1", 16),
+      BigInt("149f", 16),
+      BigInt("b083", 16),
+      BigInt("a41c", 16),
+      BigInt("1716", 16),
+      BigInt("b30a", 16),
+      BigInt("8c54", 16),
+      BigInt("3f5e", 16),
+      BigInt("2bc1", 16),
+      BigInt("149f", 16),
+      BigInt("b083", 16),
+      BigInt("a41c", 16),
+      BigInt("1716", 16),
+      BigInt("b30a", 16),
+    ),
+  )
   behavior of "pattern reader"
   it should "detect SB clock pattern" in {
     test(new PatternReader(sbParams, afeParams, 1024)) { c =>
+      val maxPatternWidth = log2Ceil(1024 + 1)
       initPorts(c)
-      createRequest(c, TransmitPattern.CLOCK, sbParams.sbNodeMsgWidth * 4, true)
+      createRequest(
+        c,
+        TransmitPattern.CLOCK,
+        sbParams.sbNodeMsgWidth * 4,
+        true,
+        maxPatternWidth,
+      )
       c.io.mbRxData.ready.expect(false.B)
 
       val testVector =
@@ -32,157 +119,164 @@ class PatternReaderTest extends AnyFlatSpec with ChiselScalatestTester {
   }
   it should "detect MB LFSR pattern no errors" in {
     test(new PatternReader(sbParams, afeParams, maxPatternCount = 2048)) { c =>
-      val width = afeParams.mbLanes * afeParams.mbSerializerRatio
-      val testVector =
-        Seq(
-          "hb877_cf0f_c0c7_07bf_b877_cf0f_c0c7_07bf_07ce_c912_db60_bbbc_07ce_c912_db60_bbbc"
-            .U(width.W),
-          "h85d7_5241_13be_ad28_85d7_5241_13be_ad28_9b02_9901_981e_861d_9b02_9901_981e_861d"
-            .U(width.W),
-          "hac7c_d0b0_60e4_8428_ac7c_d0b0_60e4_8428_6bad_c683_4596_d3b8_6bad_c683_4596_d3b8"
-            .U(width.W),
-          "hb317_a4b0_142b_3f8c_b317_a4b0_142b_3f8c_0a16_1c83_9fc1_5e54_0a16_1c83_9fc1_5e54"
-            .U(width.W),
-        )
-      makeMBTest(c, TransmitPattern.LFSR, testVector, 0)
+      val maxPatternWidth = log2Ceil(2048 + 1)
+
+      makeMBTest(
+        c,
+        TransmitPattern.LFSR,
+        lfsrVals.map(f =>
+          Vec.Lit(f.map(_.U(afeParams.mbSerializerRatio.W)): _*),
+        ),
+        errorCountExpected =
+          Vec.Lit(Seq.fill(afeParams.mbLanes)(0.U(maxPatternWidth.W)): _*),
+        maxErrorCountWidth = maxPatternWidth,
+      )
     }
   }
   it should "detect MB LFSR pattern error count" in {
     test(new PatternReader(sbParams, afeParams, maxPatternCount = 2048)) { c =>
       val width = afeParams.mbLanes * afeParams.mbSerializerRatio
-      var testVector = Seq(
-        "hb877_cf0f_c0c7_07bf_b877_cf0f_c0c7_07bf_07ce_c912_df60_bbbc_07ce_c912_db60_bbbc"
-          .U(width.W),
-        "h85d7_5241_13be_ad28_85d7_5241_13be_ad28_9b02_9901_981e_861d_9b12_9911_981e_861d"
-          .U(width.W),
-        "hac7c_d0b0_60e4_8428_ac7c_d3b0_60e4_f428_6bad_c683_4596_d3f8_6bad_c683_4596_d3b8"
-          .U(width.W),
-        "hb317_a7b1_142b_3f8c_f317_a4b0_142b_3f8c_fa16_1c83_9fc1_5e54_0a16_1c83_9fc1_5e54"
-          .U(width.W),
+      val maxPatternCountWidth = log2Ceil(2048 + 1)
+      var (testVecs, errVecs) = createExpErrVecs(lfsrVals)
+
+      println(f"errVecs= $errVecs")
+      makeMBTest(
+        c,
+        TransmitPattern.LFSR,
+        testVecs.map(vec =>
+          Vec.Lit(vec.toSeq.map(_.U(afeParams.mbSerializerRatio.W)): _*),
+        ),
+        Vec.Lit(errVecs.map(_.U(maxPatternCountWidth.W)): _*),
+        maxPatternCountWidth,
       )
-      makeMBTest(c, TransmitPattern.LFSR, testVector, 17)
 
       c.reset.poke(true.B)
       c.clock.step()
       c.reset.poke(false.B)
 
-      testVector = Seq(
-        "hb877_cf0f_c0c7_07bf_b877_cf00_c0c7_07bf_07ce_c912_db60_bbbc_07ce_c912_db60_bbbc"
-          .U(width.W),
-        "h85d7_5241_13be_ad28_85d7_5241_13be_ad28_9b02_0901_981e_861d_9b02_9901_981e_861d"
-          .U(width.W),
-        "hac7c_d0b0_60e4_8428_ac7c_d0b0_60e4_8428_6bad_c682_4596_d3b8_6bad_c683_4596_d3b8"
-          .U(width.W),
-        "hb317_a4b0_142b_3f8c_b317_a4b0_142b_3f8c_0a16_1c83_9fc1_5e54_0a16_1c83_9fc1_5e54"
-          .U(width.W),
+      var res = createExpErrVecs(lfsrVals)
+      testVecs = res._1
+      errVecs = res._2
+      println(f"errVecs= $errVecs")
+
+      makeMBTest(
+        c,
+        TransmitPattern.LFSR,
+        testVecs.map(vec =>
+          Vec.Lit(vec.toSeq.map(_.U(afeParams.mbSerializerRatio.W)): _*),
+        ),
+        Vec.Lit(errVecs.map(_.U(maxPatternCountWidth.W)): _*),
+        maxPatternCountWidth,
       )
-      makeMBTest(c, TransmitPattern.LFSR, testVector, 7)
 
       c.reset.poke(true.B)
       c.clock.step()
       c.reset.poke(false.B)
 
-      testVector = Seq(
-        "hb877_cf0f_c0c7_07bf_b877_cf0f_c0c7_07bf_07ce_c912_db60_bbbc_00ce_c912_db60_bbbc"
-          .U(width.W),
-        "h85d7_5241_13be_ad28_85d7_5241_13be_ad28_9b32_9901_981e_861d_9b02_9911_981e_861d"
-          .U(width.W),
-        "hac7c_d0b0_60e4_8428_ac7c_d0b0_60e4_8428_60ad_c683_4596_d3b8_6bad_c683_4596_d3b8"
-          .U(width.W),
-        "hb317_a4b0_142b_3f8c_b317_a4b0_142b_3f8c_0a06_1c83_9fc1_5e5f_0a16_1c83_9fc1_5e54"
-          .U(width.W),
+      res = createExpErrVecs(lfsrVals)
+      testVecs = res._1
+      errVecs = res._2
+      println(f"errVecs= $errVecs")
+      makeMBTest(
+        c,
+        TransmitPattern.LFSR,
+        testVecs.map(vec =>
+          Vec.Lit(vec.toSeq.map(_.U(afeParams.mbSerializerRatio.W)): _*),
+        ),
+        Vec.Lit(errVecs.map(_.U(maxPatternCountWidth.W)): _*),
+        maxPatternCountWidth,
       )
-      makeMBTest(c, TransmitPattern.LFSR, testVector, 13)
+
     }
   }
   it should "detect MB valtrain pattern" in {
     test(new PatternReader(sbParams, afeParams, maxPatternCount = 2048)) { c =>
-      val width = afeParams.mbLanes * afeParams.mbSerializerRatio
-      var testVector = Seq(
-        BigInt("11110000" * (width / 8), 2).U,
-        BigInt("11110000" * (width / 8), 2).U,
-        BigInt("11110000" * (width / 8), 2).U,
-        BigInt("11110000" * (width / 8), 2).U,
+      var numVecs = 4
+      val maxPatternCountWidth = log2Ceil(2048 + 1)
+      var testVector = Seq.fill(numVecs)(
+        Seq.fill(afeParams.mbLanes)(
+          BigInt("11110000" * (afeParams.mbSerializerRatio / 8), 2),
+        ),
       )
-      makeMBTest(c, TransmitPattern.VALTRAIN, testVector, 0)
+      var (testVecs, errVecs) = createExpErrVecs(testVector)
+
+      println(f"errVecs= $errVecs")
+      makeMBTest(
+        c,
+        TransmitPattern.VALTRAIN,
+        testVecs.map(vec =>
+          Vec.Lit(vec.toSeq.map(_.U(afeParams.mbSerializerRatio.W)): _*),
+        ),
+        Vec.Lit(errVecs.map(_.U(maxPatternCountWidth.W)): _*),
+        maxPatternCountWidth,
+      )
 
       c.reset.poke(true.B)
       c.clock.step()
       c.reset.poke(false.B)
 
-      testVector = Seq(
-        toggleBits(BigInt("11110000" * (width / 8), 2), 0, 31, 249, 2).U,
-        toggleBits(BigInt("11110000" * (width / 8), 2), 1, 8, 9).U,
-        toggleBits(BigInt("11110000" * (width / 8), 2), 0, 2, 49, 9).U,
-        toggleBits(BigInt("11110000" * (width / 8), 2), 1).U,
+      numVecs = 10
+      testVector = Seq.fill(numVecs)(
+        Seq.fill(afeParams.mbLanes)(
+          BigInt("11110000" * (afeParams.mbSerializerRatio / 8), 2),
+        ),
       )
-      makeMBTest(c, TransmitPattern.VALTRAIN, testVector, 12)
 
-      c.reset.poke(true.B)
-      c.clock.step()
-      c.reset.poke(false.B)
+      val res = createExpErrVecs(testVector)
+      testVecs = res._1
+      errVecs = res._2
 
-      testVector = Seq(
-        toggleBits(BigInt("11110000" * (width / 8), 2), 3, 241).U,
-        toggleBits(BigInt("11110000" * (width / 8), 2), 9).U,
-        toggleBits(BigInt("11110000" * (width / 8), 2), 49, 0).U,
-        toggleBits(BigInt("11110000" * (width / 8), 2)).U,
+      println(f"errVecs= $errVecs")
+      makeMBTest(
+        c,
+        TransmitPattern.VALTRAIN,
+        testVecs.map(vec =>
+          Vec.Lit(vec.toSeq.map(_.U(afeParams.mbSerializerRatio.W)): _*),
+        ),
+        Vec.Lit(errVecs.map(_.U(maxPatternCountWidth.W)): _*),
+        maxPatternCountWidth,
       )
-      makeMBTest(c, TransmitPattern.VALTRAIN, testVector, 5)
+
     }
   }
+
+  private def createExpErrVecs(
+      testVector: Seq[Seq[BigInt]],
+  ): (Seq[mutable.Seq[BigInt]], Seq[Int]) = {
+    val testErrSeq = testVector.map(vec =>
+      TestUtils.makeRandomErrors(vec, afeParams.mbSerializerRatio),
+    )
+    val testVecs = testErrSeq.map(_._1)
+    val errVecs =
+      testErrSeq.map(_._2).reduce((x, y) => x.zip(y).map(f => f._1 + f._2))
+    (testVecs, errVecs)
+  }
+
   it should "detect MB per-lane ID pattern" in {
     test(new PatternReader(sbParams, afeParams, maxPatternCount = 2048)) { c =>
-      val pattern = BigInt(
-        "1010000011111010" +
-          "1010000011101010" +
-          "1010000011011010" +
-          "1010000011001010" +
-          "1010000010111010" +
-          "1010000010101010" +
-          "1010000010011010" +
-          "1010000010001010" +
-          "1010000001111010" +
-          "1010000001101010" +
-          "1010000001011010" +
-          "1010000001001010" +
-          "1010000000111010" +
-          "1010000000101010" +
-          "1010000000011010" +
-          "1010000000001010",
-        2,
+      val numVecs = 5
+      val maxPatternCountWidth = log2Ceil(2048 + 1)
+      val testVector = Seq.fill(numVecs)(
+        Seq.tabulate(afeParams.mbLanes)(i => BigInt("A" + f"$i%02X" + "A", 16)),
       )
 
-      var testVector = Seq(
-        pattern.U,
-        pattern.U,
-        pattern.U,
-        pattern.U,
+      val (testVecs, errVecs) = createExpErrVecs(testVector)
+
+      println(f"errVecs= $errVecs")
+      makeMBTest(
+        c,
+        TransmitPattern.PER_LANE_ID,
+        testVecs.map(vec =>
+          Vec.Lit(vec.toSeq.map(_.U(afeParams.mbSerializerRatio.W)): _*),
+        ),
+        Vec.Lit(errVecs.map(_.U(maxPatternCountWidth.W)): _*),
+        maxPatternCountWidth,
       )
-      makeMBTest(c, TransmitPattern.PER_LANE_ID, testVector, 0)
 
       c.reset.poke(true.B)
       c.clock.step()
       c.reset.poke(false.B)
 
-      testVector = Seq(
-        toggleBits(pattern, 0).U,
-        toggleBits(pattern, 240, 8, 9).U,
-        toggleBits(pattern, 0, 2, 49, 9).U,
-        toggleBits(pattern, 1, 200).U,
-        toggleBits(pattern, 1).U,
-      )
-      makeMBTest(c, TransmitPattern.PER_LANE_ID, testVector, 11)
-
-      c.reset.poke(true.B)
-      c.clock.step()
-      c.reset.poke(false.B)
-
-      testVector = Seq(
-        toggleBits(pattern, 0).U,
-        toggleBits(pattern, 1, 240, 9).U,
-      )
-      makeMBTest(c, TransmitPattern.PER_LANE_ID, testVector, 4)
     }
   }
 
@@ -200,8 +294,9 @@ class PatternReaderTest extends AnyFlatSpec with ChiselScalatestTester {
   private def makeMBTest(
       c: PatternReader,
       transmitPattern: TransmitPattern.Type,
-      testVector: Seq[UInt],
-      errorCountExpected: Int,
+      testVector: Seq[Vec[UInt]],
+      errorCountExpected: Vec[UInt],
+      maxErrorCountWidth: Int,
   ): Unit = {
     initPorts(c)
     val width = afeParams.mbLanes * afeParams.mbSerializerRatio
@@ -210,6 +305,7 @@ class PatternReaderTest extends AnyFlatSpec with ChiselScalatestTester {
       transmitPattern,
       patternCountMax = width * testVector.length,
       sideband = false,
+      maxErrorCountWidth,
     )
     c.io.sbRxData.ready.expect(false.B)
 
@@ -222,20 +318,24 @@ class PatternReaderTest extends AnyFlatSpec with ChiselScalatestTester {
 
     c.io.sbRxData.ready.expect(false.B)
     c.io.resp.complete.expect(true.B)
-    c.io.resp.errorCount.expect(errorCountExpected.U)
+    c.io.resp.errorCount.expect(errorCountExpected)
   }
   private def createRequest(
       c: PatternReader,
       transmitPattern: TransmitPattern.Type,
       patternCountMax: Int,
       sideband: Boolean,
+      maxPatternWidth: Int,
   ): Unit = {
     c.io.request.bits.pattern.poke(transmitPattern)
     c.io.request.bits.patternCountMax.poke(patternCountMax)
-    c.io.request.bits.sideband.poke(sideband.B)
     c.io.request.valid.poke(true.B)
     c.io.resp.complete.expect(false.B)
-    c.io.resp.errorCount.expect(0.U)
+    c.io.resp.errorCount.expect(
+      Vec.Lit(
+        Seq.fill(afeParams.mbLanes)(0.U(maxPatternWidth.W)): _*,
+      ),
+    )
     c.io.resp.inProgress.expect(false.B)
     c.clock.step()
   }

@@ -37,10 +37,12 @@ class SidebandFSMIO(
 }
 
 class MainbandFSMIO(
+    afeParams: AfeParams,
 ) extends Bundle {
   val rxEn = Input(Bool())
   val pllLock = Output(Bool())
   val txFreqSel = Input(SpeedMode())
+  val mainbandIO = new MainbandIO(afeParams)
 }
 
 class LinkTrainingFSM(
@@ -53,7 +55,7 @@ class LinkTrainingFSM(
     linkTrainingParams.sbClockFreqAnalog / afeParams.sbSerializerRatio
 
   val io = IO(new Bundle {
-    val mainbandFSMIO = Flipped(new MainbandFSMIO)
+    val mainbandFSMIO = Flipped(new MainbandFSMIO(afeParams))
     val sidebandFSMIO = Flipped(new SidebandFSMIO(sbParams))
     val rdi = new Bundle {
       val rdiBringupIO = new RdiBringupIO
@@ -67,7 +69,7 @@ class LinkTrainingFSM(
   val sbMsgWrapper = Module(new SBMsgWrapper(sbParams))
 
   private val msgSource = WireInit(MsgSource.PATTERN_GENERATOR)
-  // io.mainbandLaneIO <> patternGenerator.io.mainbandLaneIO
+  io.mainbandFSMIO.mainbandIO <> patternGenerator.io.mainbandIO
 
   patternGenerator.io.patternGeneratorIO.transmitReq.noenq()
   patternGenerator.io.patternGeneratorIO.resp.nodeq()
@@ -226,12 +228,13 @@ class LinkTrainingFSM(
       switch(sbInitSubState) {
         is(SBInitSubState.SEND_CLOCK) {
           patternGenerator.io.patternGeneratorIO.transmitReq.bits.pattern := TransmitPattern.CLOCK
-          patternGenerator.io.patternGeneratorIO.transmitReq.bits.sideband := true.B
 
           /** Timeout occurs after 8ms */
           patternGenerator.io.patternGeneratorIO.transmitReq.bits.timeoutCycles := (
             0.008 * sbClockFreq,
           ).toInt.U
+          patternGenerator.io.patternGeneratorIO.transmitReq.bits.patternCountMax := (128 + 64 * 4).U
+          patternGenerator.io.patternGeneratorIO.transmitReq.bits.patternDetectedCountMax := (128).U
 
           patternGenerator.io.patternGeneratorIO.transmitReq.valid := true.B
           msgSource := MsgSource.PATTERN_GENERATOR
@@ -258,21 +261,11 @@ class LinkTrainingFSM(
           }
         }
         is(SBInitSubState.SB_OUT_OF_RESET_EXCH) {
-          sbMsgWrapper.io.trainIO.msgReq.bits.msg := SBMessage_factory(
-            SBM.SBINIT_OUT_OF_RESET,
-            "PHY",
-            true,
-            "PHY",
-          )
-          /* sbMsgWrapper.io.trainIO.msgReq.bits.reqType :=
-           * MessageRequestType.MSG_EXCH */
-          // sbMsgWrapper.io.trainIO.msgReq.bits.msgTypeHasData := false.B
-          sbMsgWrapper.io.trainIO.msgReq.valid := true.B
+          val bitPat = SBM.SBINIT_OUT_OF_RESET
+          val reqType = MessageRequestType.EXCHANGE
+          val timeout = (0.008 * sbClockFreq).toInt
+          sendSidebandReq(bitPat, reqType, timeout)
 
-          sbMsgWrapper.io.trainIO.msgReq.bits.timeoutCycles := (
-            0.008 * sbClockFreq,
-          ).toInt.U
-          msgSource := MsgSource.SB_MSG_WRAPPER
           when(sbMsgWrapper.io.trainIO.msgReq.fire) {
             sbInitSubState := SBInitSubState.SB_OUT_OF_RESET_WAIT
           }
@@ -292,20 +285,11 @@ class LinkTrainingFSM(
           }
         }
         is(SBInitSubState.SB_DONE_REQ) {
-          sbMsgWrapper.io.trainIO.msgReq.bits.msg := SBMessage_factory(
+          sendSidebandReq(
             SBM.SBINIT_DONE_REQ,
-            "PHY",
-            true,
-            "PHY",
+            MessageRequestType.EXCHANGE,
+            (0.008 * sbClockFreq).toInt,
           )
-          /* sbMsgWrapper.io.trainIO.msgReq.bits.reqType :=
-           * MessageRequestType.MSG_REQ */
-          // sbMsgWrapper.io.trainIO.msgReq.bits.msgTypeHasData := false.B
-          sbMsgWrapper.io.trainIO.msgReq.valid := true.B
-          sbMsgWrapper.io.trainIO.msgReq.bits.timeoutCycles := (
-            0.008 * sbClockFreq,
-          ).toInt.U
-          msgSource := MsgSource.SB_MSG_WRAPPER
           when(sbMsgWrapper.io.trainIO.msgReq.fire) {
             sbInitSubState := SBInitSubState.SB_DONE_REQ_WAIT
           }
@@ -325,20 +309,11 @@ class LinkTrainingFSM(
           }
         }
         is(SBInitSubState.SB_DONE_RESP) {
-          sbMsgWrapper.io.trainIO.msgReq.bits.msg := SBMessage_factory(
+          sendSidebandReq(
             SBM.SBINIT_DONE_RESP,
-            "PHY",
-            remote = true,
-            "PHY",
+            MessageRequestType.EXCHANGE,
+            (0.008 * sbClockFreq).toInt,
           )
-          /* sbMsgWrapper.io.trainIO.msgReq.bits.reqType :=
-           * MessageRequestType.MSG_RESP */
-          sbMsgWrapper.io.trainIO.msgReq.valid := true.B
-          // sbMsgWrapper.io.trainIO.msgReq.bits.msgTypeHasData := false.B
-          msgSource := MsgSource.SB_MSG_WRAPPER
-          sbMsgWrapper.io.trainIO.msgReq.bits.timeoutCycles := (
-            0.008 * sbClockFreq,
-          ).toInt.U
           when(sbMsgWrapper.io.trainIO.msgReq.fire) {
             sbInitSubState := SBInitSubState.SB_DONE_RESP_WAIT
           }
@@ -361,7 +336,6 @@ class LinkTrainingFSM(
     }
     is(LinkTrainingState.mbInit) {
 
-      /** TODO: can't use two message sources at the same time */
       mbInit.io.sbTrainIO <> sbMsgWrapper.io.trainIO
       mbInit.io.patternGeneratorIO <> patternGenerator.io.patternGeneratorIO
       msgSource := MsgSource.SB_MSG_WRAPPER
@@ -393,4 +367,20 @@ class LinkTrainingFSM(
     }
   }
 
+  private def sendSidebandReq(
+      bitPat: BitPat,
+      reqType: MessageRequestType.Type,
+      timeout: Int,
+  ): Unit = {
+    sbMsgWrapper.io.trainIO.msgReq.bits.msg := SBMessage_factory(
+      bitPat,
+      "PHY",
+      true,
+      "PHY",
+    )
+    sbMsgWrapper.io.trainIO.msgReq.bits.reqType := reqType
+    sbMsgWrapper.io.trainIO.msgReq.valid := true.B
+    sbMsgWrapper.io.trainIO.msgReq.bits.timeoutCycles := timeout.U
+    msgSource := MsgSource.SB_MSG_WRAPPER
+  }
 }

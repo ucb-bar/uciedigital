@@ -2,8 +2,10 @@ package edu.berkeley.cs.ucie.digital
 package logphy
 
 import chisel3._
-import chisel3.experimental.BundleLiterals._
+import chisel3.util._
 import chiseltest._
+import chisel3.experimental.BundleLiterals._
+import chisel3.experimental.VecLiterals.AddObjectLiteralConstructor
 import sideband.SidebandParams
 import interfaces._
 import org.scalatest.flatspec.AnyFlatSpec
@@ -11,6 +13,81 @@ import org.scalatest.flatspec.AnyFlatSpec
 class PatternGeneratorTest extends AnyFlatSpec with ChiselScalatestTester {
   val afeParams = AfeParams()
   val sbParams = SidebandParams()
+  val lfsrVals = Seq(
+    Seq(
+      BigInt("bfbc", 16),
+      BigInt("07bb", 16),
+      BigInt("c760", 16),
+      BigInt("c0db", 16),
+      BigInt("0f12", 16),
+      BigInt("cfc9", 16),
+      BigInt("77ce", 16),
+      BigInt("b807", 16),
+      BigInt("bfbc", 16),
+      BigInt("07bb", 16),
+      BigInt("c760", 16),
+      BigInt("c0db", 16),
+      BigInt("0f12", 16),
+      BigInt("cfc9", 16),
+      BigInt("77ce", 16),
+      BigInt("b807", 16),
+    ),
+    Seq(
+      BigInt("281d", 16),
+      BigInt("ad86", 16),
+      BigInt("be1e", 16),
+      BigInt("1398", 16),
+      BigInt("4101", 16),
+      BigInt("5299", 16),
+      BigInt("d702", 16),
+      BigInt("859b", 16),
+      BigInt("281d", 16),
+      BigInt("ad86", 16),
+      BigInt("be1e", 16),
+      BigInt("1398", 16),
+      BigInt("4101", 16),
+      BigInt("5299", 16),
+      BigInt("d702", 16),
+      BigInt("859b", 16),
+    ),
+    Seq(
+      BigInt("28b8", 16),
+      BigInt("84d3", 16),
+      BigInt("e496", 16),
+      BigInt("6045", 16),
+      BigInt("b083", 16),
+      BigInt("d0c6", 16),
+      BigInt("7cad", 16),
+      BigInt("ac6b", 16),
+      BigInt("28b8", 16),
+      BigInt("84d3", 16),
+      BigInt("e496", 16),
+      BigInt("6045", 16),
+      BigInt("b083", 16),
+      BigInt("d0c6", 16),
+      BigInt("7cad", 16),
+      BigInt("ac6b", 16),
+    ),
+    Seq(
+      BigInt("8c54", 16),
+      BigInt("3f5e", 16),
+      BigInt("2bc1", 16),
+      BigInt("149f", 16),
+      BigInt("b083", 16),
+      BigInt("a41c", 16),
+      BigInt("1716", 16),
+      BigInt("b30a", 16),
+      BigInt("8c54", 16),
+      BigInt("3f5e", 16),
+      BigInt("2bc1", 16),
+      BigInt("149f", 16),
+      BigInt("b083", 16),
+      BigInt("a41c", 16),
+      BigInt("1716", 16),
+      BigInt("b30a", 16),
+    ),
+  )
+
   behavior of "sideband pattern generator"
   it should "detect clock pattern no delay" in {
     test(
@@ -39,37 +116,29 @@ class PatternGeneratorTest extends AnyFlatSpec with ChiselScalatestTester {
   }
   behavior of "mainband pattern generator"
   it should "detect MB LFSR pattern" in {
+    val maxPatternCount = 1024
     test(
       new PatternGenerator(
         afeParams = afeParams,
         sbParams = sbParams,
-        maxPatternCount = 1024,
+        maxPatternCount = maxPatternCount,
       ),
     ) { c =>
       initPorts(c)
+      val maxPatternCountWidth = log2Ceil(maxPatternCount + 1)
       val width = afeParams.mbSerializerRatio * afeParams.mbLanes
 
-      val rxReceived = Seq(
-        "hb877_cf0f_c0c7_07bf_b877_cf0f_c0c7_07bf_07ce_c912_db60_bbbc_07ce_c912_db60_bbbc"
-          .U(width.W),
-        "h85d7_5241_13be_ad28_85d7_5241_13be_ad28_9b02_9901_981e_861d_9b02_9901_981e_861d"
-          .U(width.W),
-        "hac7c_d0b0_60e4_8428_ac7c_d0b0_60e4_8428_6bad_c683_4596_d3b8_6bad_c683_4596_d3b8"
-          .U(width.W),
-        "hb317_a4b0_142b_3f8c_b317_a4b0_142b_3f8c_0a16_1c83_9fc1_5e54_0a16_1c83_9fc1_5e54"
-          .U(width.W),
-      )
-
-      val expectedTx = Seq(
-        "hb877_cf0f_c0c7_07bf_b877_cf0f_c0c7_07bf_07ce_c912_db60_bbbc_07ce_c912_db60_bbbc"
-          .U(width.W),
-        "h85d7_5241_13be_ad28_85d7_5241_13be_ad28_9b02_9901_981e_861d_9b02_9901_981e_861d"
-          .U(width.W),
-        "hac7c_d0b0_60e4_8428_ac7c_d0b0_60e4_8428_6bad_c683_4596_d3b8_6bad_c683_4596_d3b8"
-          .U(width.W),
-        "hb317_a4b0_142b_3f8c_b317_a4b0_142b_3f8c_0a16_1c83_9fc1_5e54_0a16_1c83_9fc1_5e54"
-          .U(width.W),
-      )
+      val expectedTx = lfsrVals
+        .map(
+          TestUtils
+            .lanesToOne(_, afeParams.mbLanes, afeParams.mbSerializerRatio),
+        )
+        .map(_.U(width.W))
+      var rxReceived = lfsrVals
+        .map(
+          TestUtils
+            .lanesToOne(_, afeParams.mbLanes, afeParams.mbSerializerRatio),
+        )
 
       /** expected case with no errors */
       testMainband(
@@ -78,25 +147,80 @@ class PatternGeneratorTest extends AnyFlatSpec with ChiselScalatestTester {
         patternCountMax = 4,
         patternDetectedCountMax = 4,
         timeoutCycles = 80,
-        mainbandRx = rxReceived,
+        mainbandRx = rxReceived.map(f => f.U(width.W)),
         mainbandTx = expectedTx,
         expectedResult = MessageRequestStatusType.SUCCESS,
-        expectedErrorCount = 0,
+        expectedErrorCount = Vec.Lit(
+          Seq.fill(afeParams.mbLanes)(0.U(maxPatternCountWidth.W)): _*,
+        ),
       )
 
+      val numTests = 4
+      for (_ <- 0 until numTests) {
+        val (rxRecv, err) =
+          TestUtils.createExpErrVecs(lfsrVals, afeParams.mbSerializerRatio)
+        testMainband(
+          c = c,
+          transmitPattern = TransmitPattern.LFSR,
+          patternCountMax = 4,
+          patternDetectedCountMax = 4,
+          timeoutCycles = 80,
+          mainbandTx = expectedTx,
+          mainbandRx = rxRecv
+            .map(f =>
+              TestUtils
+                .lanesToOne(
+                  f.toSeq,
+                  afeParams.mbLanes,
+                  afeParams.mbSerializerRatio,
+                ),
+            )
+            .map(_.U),
+          expectedResult = MessageRequestStatusType.SUCCESS,
+          expectedErrorCount = Vec.Lit(err.map(_.U(maxPatternCountWidth.W)): _*),
+        )
+      }
     }
   }
-
   it should "handle MB timeouts" in {
+    val maxPatternCount = 1024
     test(
       new PatternGenerator(
         afeParams = afeParams,
         sbParams = sbParams,
-        maxPatternCount = 1024,
+        maxPatternCount = maxPatternCount,
       ),
     ) { c =>
       initPorts(c)
-      assert(false, "TODO")
+      val width = afeParams.mbSerializerRatio * afeParams.mbLanes
+      val maxPatternCountWidth = log2Ceil(maxPatternCount + 1)
+
+      val expectedTx = lfsrVals
+        .map(
+          TestUtils
+            .lanesToOne(_, afeParams.mbLanes, afeParams.mbSerializerRatio),
+        )
+        .map(_.U(width.W))
+      val rxReceived = lfsrVals
+        .map(
+          TestUtils
+            .lanesToOne(_, afeParams.mbLanes, afeParams.mbSerializerRatio),
+        )
+
+      /** expected case with no errors */
+      testMainband(
+        c = c,
+        transmitPattern = TransmitPattern.LFSR,
+        patternCountMax = 4,
+        patternDetectedCountMax = 4,
+        timeoutCycles = 4,
+        mainbandRx = rxReceived.map(f => f.U(width.W)),
+        mainbandTx = expectedTx,
+        expectedResult = MessageRequestStatusType.ERR,
+        expectedErrorCount = Vec.Lit(
+          Seq.fill(afeParams.mbLanes)(0.U(maxPatternCountWidth.W)): _*,
+        ),
+      )
     }
   }
 
@@ -113,10 +237,10 @@ class PatternGeneratorTest extends AnyFlatSpec with ChiselScalatestTester {
     c.io.sidebandLaneIO.txData
       .initSink()
       .setSinkClock(c.clock)
-    c.io.mainbandLaneIO.rxData
+    c.io.mainbandIO.rxData
       .initSource()
       .setSourceClock(c.clock)
-    c.io.mainbandLaneIO.txData
+    c.io.mainbandIO.txData
       .initSink()
       .setSinkClock(c.clock)
   }
@@ -127,13 +251,12 @@ class PatternGeneratorTest extends AnyFlatSpec with ChiselScalatestTester {
       patternCountMax: Int,
       patternDetectedCountMax: Int,
       timeoutCycles: Int,
-      sideband: Boolean,
   ): Unit = {
     c.io.patternGeneratorIO.transmitReq.ready.expect(true)
     c.io.sidebandLaneIO.rxData.ready.expect(false)
-    c.io.mainbandLaneIO.rxData.ready.expect(false)
+    c.io.mainbandIO.rxData.ready.expect(false)
     c.io.sidebandLaneIO.txData.expectInvalid()
-    c.io.mainbandLaneIO.txData.expectInvalid()
+    c.io.mainbandIO.txData.expectInvalid()
     c.io.patternGeneratorIO.resp.expectInvalid()
     c.io.patternGeneratorIO.transmitReq.enqueueNow(
       chiselTypeOf(c.io.patternGeneratorIO.transmitReq.bits).Lit(
@@ -141,7 +264,6 @@ class PatternGeneratorTest extends AnyFlatSpec with ChiselScalatestTester {
         _.patternCountMax -> patternCountMax.U,
         _.patternDetectedCountMax -> patternDetectedCountMax.U,
         _.timeoutCycles -> timeoutCycles.U,
-        _.sideband -> sideband.B,
       ),
     )
   }
@@ -155,7 +277,6 @@ class PatternGeneratorTest extends AnyFlatSpec with ChiselScalatestTester {
       length * sbParams.sbNodeMsgWidth,
       length * sbParams.sbNodeMsgWidth,
       80,
-      true,
     )
 
     val testVector =
@@ -167,13 +288,23 @@ class PatternGeneratorTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.sidebandLaneIO.txData.expectDequeueSeq(testVector)
     }.join()
 
-    c.io.patternGeneratorIO.resp
-      .expectDequeue(
-        chiselTypeOf(c.io.patternGeneratorIO.resp.bits).Lit(
-          _.status -> MessageRequestStatusType.SUCCESS,
-          _.errorCount -> 0.U,
-        ),
-      )
+    c.io.patternGeneratorIO.resp.ready.poke(true.B)
+
+    val resp = c.io.patternGeneratorIO.resp
+    val statusExpected = MessageRequestStatusType.SUCCESS
+    fork
+      .withRegion(Monitor) {
+        while (!resp.valid.peek().litToBoolean) {
+          c.clock.step(1)
+        }
+        resp.valid.expect(true.B)
+        resp.bits.expectPartial(
+          chiselTypeOf(resp.bits).Lit(
+            _.status -> statusExpected,
+          ),
+        )
+      }
+      .joinAndStep(c.clock)
   }
 
   private def testMainband(
@@ -185,7 +316,7 @@ class PatternGeneratorTest extends AnyFlatSpec with ChiselScalatestTester {
       mainbandRx: Seq[UInt],
       mainbandTx: Seq[UInt],
       expectedResult: MessageRequestStatusType.Type,
-      expectedErrorCount: Int,
+      expectedErrorCount: Vec[UInt],
   ): Unit = {
 
     createRequest(
@@ -194,22 +325,37 @@ class PatternGeneratorTest extends AnyFlatSpec with ChiselScalatestTester {
       patternCountMax * afeParams.mbSerializerRatio * afeParams.mbLanes,
       patternDetectedCountMax * afeParams.mbSerializerRatio * afeParams.mbLanes,
       timeoutCycles,
-      false,
     )
 
     fork {
-      c.io.mainbandLaneIO.rxData.enqueueSeq(mainbandRx)
+      c.io.mainbandIO.rxData.enqueueSeq(mainbandRx)
     }.fork {
-      c.io.mainbandLaneIO.txData.expectDequeueSeq(mainbandTx)
+      c.io.mainbandIO.txData.expectDequeueSeq(mainbandTx)
     }.join()
 
     c.io.patternGeneratorIO.resp
       .expectDequeue(
         chiselTypeOf(c.io.patternGeneratorIO.resp.bits).Lit(
           _.status -> expectedResult,
-          _.errorCount -> expectedErrorCount.U,
+          _.errorCount -> expectedErrorCount,
         ),
       )
 
   }
+}
+
+class PatternGeneratorLoopback(
+    afeParams: AfeParams,
+    sbParams: SidebandParams,
+    maxPatternCount: Int,
+) extends Module {
+
+  val io = IO(new Bundle {
+    val patternGeneratorIO = new PatternGeneratorIO(afeParams, maxPatternCount)
+  })
+
+  val patternGenerator = Module(
+    new PatternGenerator(afeParams, sbParams, maxPatternCount),
+  )
+
 }

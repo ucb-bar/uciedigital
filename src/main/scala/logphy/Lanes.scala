@@ -7,14 +7,59 @@ import chisel3.util._
 import freechips.rocketchip.util.{AsyncQueue, AsyncQueueParams}
 import logphy.Scrambler
 
+object LanesToOne {
+  def apply(
+      laneData: Vec[UInt],
+      numLanes: Int,
+      serializerRatio: Int,
+  ): Bits = {
+    val ratioBytes = serializerRatio / 8
+    val rxDataVec = Wire(
+      Vec(ratioBytes, Vec(numLanes, UInt(8.W))),
+    )
+    for (i <- 0 until numLanes) {
+      for (j <- 0 until ratioBytes) {
+        rxDataVec(j)(i) := laneData(i).asTypeOf(
+          VecInit(Seq.fill(ratioBytes)(0.U(8.W))),
+        )(j)
+      }
+    }
+    rxDataVec.asUInt
+  }
+}
+
+object OneToLanes {
+  def apply(
+      bits: Bits,
+      numLanes: Int,
+      serializerRatio: Int,
+  ): Vec[UInt] = {
+    val ratioBytes = serializerRatio / 8
+    val result = Wire(Vec(numLanes, UInt(serializerRatio.W)))
+    val txDataVec = Wire(Vec(numLanes, Vec(ratioBytes, UInt(8.W))))
+    val txDataBytes = Wire(Vec(numLanes * ratioBytes, UInt(8.W)))
+    txDataBytes := bits.asTypeOf(txDataBytes)
+    for (i <- 0 until numLanes) {
+      for (j <- 0 until ratioBytes) {
+        txDataVec(i)(j) := txDataBytes(numLanes * j + i)
+      }
+    }
+    for (i <- 0 until numLanes) {
+      result(i) := txDataVec(i).asUInt
+    }
+    result
+  }
+}
+
 class Lanes(
     afeParams: AfeParams,
     queueParams: AsyncQueueParams,
 ) extends Module {
+
   val io = IO(new Bundle() {
     val scramble = Input(Bool())
-    val mainbandIo = new MainbandIO(afeParams)
-    val mainbandLaneIO = new MainbandLaneIO(afeParams)
+    val mainbandIo = new MainbandLaneIO(afeParams)
+    val mainbandLaneIO = new MainbandIO(afeParams)
   })
 
   val txMBFifo =
@@ -57,22 +102,6 @@ class Lanes(
   )
 
   val ratioBytes = afeParams.mbSerializerRatio / 8
-  val txDataVec = Wire(
-    Vec(afeParams.mbLanes, Vec(ratioBytes, UInt(8.W))),
-  )
-  val rxDataVec = Wire(
-    Vec(ratioBytes, Vec(afeParams.mbLanes, UInt(8.W))),
-  )
-  val txDataBytes = Wire(
-    Vec(afeParams.mbLanes * ratioBytes, UInt(8.W)),
-  )
-  txDataBytes := io.mainbandLaneIO.txData.asTypeOf(txDataBytes)
-
-  for (i <- 0 until afeParams.mbLanes) {
-    for (j <- 0 until ratioBytes) {
-      txDataVec(i)(j) := txDataBytes(afeParams.mbLanes * j + i)
-    }
-  }
 
   val scrambledTx = Wire(chiselTypeOf(txMBFifo.io.enq.bits))
   val descrambledRx = Wire(chiselTypeOf(rxMBFifo.io.deq.bits))
@@ -80,23 +109,16 @@ class Lanes(
   val rxDataInput = Wire(chiselTypeOf(rxMBFifo.io.deq.bits))
   rxDataInput := Mux(io.scramble, descrambledRx, rxMBFifo.io.deq.bits)
 
-  for (i <- 0 until afeParams.mbLanes) {
-    for (j <- 0 until ratioBytes) {
-      rxDataVec(j)(i) := rxDataInput(i).asTypeOf(
-        VecInit(Seq.fill(ratioBytes)(0.U(8.W))),
-      )(j)
-    }
-  }
-
   /** Data Scrambling / De-scrambling */
 
   rxScrambler.io.data_in := rxMBFifo.io.deq.bits
   rxScrambler.io.valid := rxMBFifo.io.deq.fire
   descrambledRx := rxScrambler.io.data_out
-
-  for (i <- 0 until afeParams.mbLanes) {
-    txScrambler.io.data_in(i) := txDataVec(i).asUInt
-  }
+  txScrambler.io.data_in := OneToLanes(
+    io.mainbandLaneIO.txData.bits,
+    afeParams.mbLanes,
+    afeParams.mbSerializerRatio,
+  )
   txScrambler.io.valid := io.mainbandLaneIO.txData.fire
   scrambledTx := txScrambler.io.data_out
 
@@ -111,7 +133,11 @@ class Lanes(
   )
 
   io.mainbandLaneIO.rxData.valid := rxMBFifo.io.deq.valid
-  io.mainbandLaneIO.rxData.bits := rxDataVec.asUInt
+  io.mainbandLaneIO.rxData.bits := LanesToOne(
+    rxDataInput,
+    afeParams.mbLanes,
+    afeParams.mbSerializerRatio,
+  )
   rxMBFifo.io.deq.ready := true.B
 }
 
@@ -132,7 +158,7 @@ class SimLanes(
   val io = IO(new Bundle() {
     val scramble = Input(Bool())
     val mainbandIo = new MainbandSimIO(afeParams)
-    val mainbandLaneIO = new MainbandLaneIO(afeParams)
+    val mainbandLaneIO = new MainbandIO(afeParams)
   })
 
   val rxScrambler =
