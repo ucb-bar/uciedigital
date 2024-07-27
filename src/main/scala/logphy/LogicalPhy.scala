@@ -28,7 +28,7 @@ class LogicalPhy(
     )
   }
 
-  if (afeParams.STANDALONE) {trainingModule.io.mainbandFSMIO.pllLock <> io.mbAfe.get.pllLock }
+  if (afeParams.STANDALONE) {trainingModule.io.mainbandFSMIO.pllLock <> io.mbAfe.get.pllLock } else {trainingModule.io.mainbandFSMIO.pllLock := 0.U}
   trainingModule.io.sidebandFSMIO.pllLock <> io.sbAfe.pllLock
   if (afeParams.STANDALONE) {trainingModule.io.mainbandFSMIO.rxEn <> io.mbAfe.get.rxEn }
   trainingModule.io.sidebandFSMIO.rxEn <> io.sbAfe.rxEn
@@ -77,6 +77,14 @@ class LogicalPhy(
     rdiDataMapper.io.mainbandLaneIO <> lanes.io.mainbandLaneIO }
   else {
     rdiDataMapper.io.mainbandLaneIO <> io.phyAfe.get
+    // defaults to zero
+    lanes.io.mainbandIo.fifoParams.clk := 0.U.asTypeOf(Clock())
+    lanes.io.mainbandIo.fifoParams.reset := 0.U
+    lanes.io.mainbandIo.txData.ready := 0.U
+    lanes.io.mainbandIo.rxData.valid := 0.U
+    lanes.io.mainbandIo.rxData.bits := 0.U.asTypeOf(lanes.io.mainbandIo.rxData.bits)
+    lanes.io.mainbandLaneIO.txData.valid := 0.U
+    lanes.io.mainbandLaneIO.txData.bits := 0.U.asTypeOf(lanes.io.mainbandLaneIO.txData.bits)
   }
 
   /** Connect RDI to Mainband IO */

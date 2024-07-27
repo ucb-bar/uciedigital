@@ -85,7 +85,11 @@ class UCITop(
   /** Mainband AFE connections to toplevel IOs
     */
   if (afeParams.STANDALONE) { io.mbAfe_tx.get <> dafe.io.mbTxData }
-  if (afeParams.STANDALONE) { io.mbAfe_rx.get <> dafe.io.mbRxData }
+  if (afeParams.STANDALONE) { 
+    io.mbAfe_rx.get <> dafe.io.mbRxData 
+  } else {
+    dafe.io.mbRxData := 0.U.asTypeOf(dafe.io.mbRxData)
+  }
 
   /** Logphy connections to Digital AFE
     */
@@ -93,6 +97,12 @@ class UCITop(
     logPhy.io.mbAfe.get <> dafe.io.mbAfeIo 
   } else {
     logPhy.io.phyAfe.get <> io.phyAfe.get
+    // defaults to zero
+    dafe.io.mbAfeIo.txData.valid := 0.U
+    dafe.io.mbAfeIo.txData.bits := 0.U.asTypeOf(dafe.io.mbAfeIo.txData.bits)
+    dafe.io.mbAfeIo.rxData.ready := 0.U
+    dafe.io.mbAfeIo.txFreqSel := 0.U.asTypeOf(dafe.io.mbAfeIo.txFreqSel)
+    dafe.io.mbAfeIo.rxEn := 0.U
   }
 
   /* Connect the protocol IOs to the top for connections to the tilelink
