@@ -71,6 +71,7 @@ class SBMsgReader(sbParams: SidebandParams) extends Module {
   when(inProgress && justReceivedMsg) {
     data := io.rxData.bits(127, 64)
     complete := true.B
+    inProgress := false.B
   }
 
   io.result.valid := complete
@@ -90,7 +91,7 @@ class SBMsgWrapper(
   val sbMsgReader = Module(new SBMsgReader(sbParams))
 
   private object State extends ChiselEnum {
-    val IDLE, EXCHANGE, RECEIVE_ONLY, WAIT_ACK = Value
+    val IDLE, EXCHANGE, RECEIVE_ONLY, SEND_ONLY, WAIT_ACK = Value
   }
 
   private val currentState = RegInit(State.IDLE)
@@ -112,7 +113,7 @@ class SBMsgWrapper(
   private val dataOut = RegInit(0.U(64.W))
   io.trainIO.msgReqStatus.bits.data := dataOut
   io.trainIO.msgReqStatus.bits.status := currentStatus
-  io.trainIO.msgReqStatus.noenq()
+  io.trainIO.msgReqStatus.valid := false.B
   io.trainIO.msgReq.nodeq()
 
   sbMsgReader.io.rxData <> io.laneIO.rxData
@@ -121,6 +122,11 @@ class SBMsgWrapper(
   sbMsgWriter.io.req.bits := currentReq
   sbMsgReader.io.req.valid := false.B
   sbMsgWriter.io.req.valid := false.B
+  private val requestToState = Seq(
+    MessageRequestType.EXCHANGE -> State.EXCHANGE,
+    MessageRequestType.SEND -> State.SEND_ONLY,
+    MessageRequestType.RECEIVE -> State.RECEIVE_ONLY,
+  )
 
   switch(currentState) {
     is(State.IDLE) {
@@ -128,7 +134,9 @@ class SBMsgWrapper(
       when(io.trainIO.msgReq.fire) {
         currentReq := io.trainIO.msgReq.bits.msg
         currentReqTimeoutMax := io.trainIO.msgReq.bits.timeoutCycles
-        nextState := Mux(io.trainIO.msgReq.bits.reqType === MessageRequestType.EXCHANGE, State.EXCHANGE, State.RECEIVE_ONLY)
+        nextState := MuxLookup(io.trainIO.msgReq.bits.reqType, State.EXCHANGE)(
+          requestToState,
+        )
       }
     }
     is(State.EXCHANGE) {
@@ -150,11 +158,16 @@ class SBMsgWrapper(
     }
     is(State.RECEIVE_ONLY) {
       sbMsgReader.io.req.valid := true.B
-
       when(sbMsgReader.io.result.valid) {
         dataOut := sbMsgReader.io.result.bits.data
         currentStatus := MessageRequestStatusType.SUCCESS
         nextState := State.WAIT_ACK
+      }
+    }
+    is(State.SEND_ONLY) {
+      sbMsgWriter.io.req.valid := true.B
+      when(sbMsgWriter.io.result.valid) {
+        currentStatus := MessageRequestStatusType.SUCCESS
       }
 
       timeoutCounter := timeoutCounter + 1.U
@@ -162,9 +175,9 @@ class SBMsgWrapper(
         nextState := State.WAIT_ACK
         currentStatus := MessageRequestStatusType.ERR
       }
+
     }
     is(State.WAIT_ACK) {
-      printf("ack\n")
       io.trainIO.msgReqStatus.valid := true.B
       when(io.trainIO.msgReqStatus.fire) {
         nextState := State.IDLE

@@ -69,11 +69,22 @@ class LogicalPhy(
 
   val lanes = Module(new Lanes(afeParams, laneAsyncQueueParams))
 
+  /** TODO: need to drive this from state machine */
+  lanes.io.scramble := true.B
+
   /** Connect internal FIFO to AFE */
-  lanes.io.mainbandIo.txData <> io.mbAfe.txData
-  lanes.io.mainbandIo.rxData <> io.mbAfe.rxData
-  lanes.io.mainbandIo.fifoParams <> io.mbAfe.fifoParams
-  rdiDataMapper.io.mainbandLaneIO <> lanes.io.mainbandLaneIO
+  when(trainingModule.io.currentState === LinkTrainingState.active) {
+    rdiDataMapper.io.mainbandLaneIO <> lanes.io.mainbandIO
+    trainingModule.io.mainbandFSMIO.mainbandIO.rxData.noenq()
+    trainingModule.io.mainbandFSMIO.mainbandIO.txData.nodeq()
+  }.otherwise {
+    rdiDataMapper.io.mainbandLaneIO.rxData.noenq()
+    rdiDataMapper.io.mainbandLaneIO.txData.nodeq()
+    trainingModule.io.mainbandFSMIO.mainbandIO <> lanes.io.mainbandIO
+  }
+  lanes.io.mainbandLaneIO.txData <> io.mbAfe.txData
+  lanes.io.mainbandLaneIO.rxData <> io.mbAfe.rxData
+  lanes.io.mainbandLaneIO.fifoParams <> io.mbAfe.fifoParams
 
   /** TODO: need to hook up lane scrambling boolean to states */
 

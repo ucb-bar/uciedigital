@@ -58,8 +58,8 @@ class Lanes(
 
   val io = IO(new Bundle() {
     val scramble = Input(Bool())
-    val mainbandIo = new MainbandLaneIO(afeParams)
-    val mainbandLaneIO = new MainbandIO(afeParams)
+    val mainbandLaneIO = new MainbandLaneIO(afeParams)
+    val mainbandIO = new MainbandIO(afeParams)
   })
 
   val txMBFifo =
@@ -86,16 +86,16 @@ class Lanes(
       new UCIeScrambler(afeParams = afeParams, numLanes = afeParams.mbLanes),
     )
 
-  rxMBFifo.io.enq <> io.mainbandIo.rxData
+  rxMBFifo.io.enq <> io.mainbandLaneIO.rxData
   rxMBFifo.io.deq_clock := clock
   rxMBFifo.io.deq_reset := reset
-  rxMBFifo.io.enq_clock := io.mainbandIo.fifoParams.clk
-  rxMBFifo.io.enq_reset := io.mainbandIo.fifoParams.reset
-  txMBFifo.io.deq <> io.mainbandIo.txData
+  rxMBFifo.io.enq_clock := io.mainbandLaneIO.fifoParams.clk
+  rxMBFifo.io.enq_reset := io.mainbandLaneIO.fifoParams.reset
+  txMBFifo.io.deq <> io.mainbandLaneIO.txData
   txMBFifo.io.enq_clock := clock
   txMBFifo.io.enq_reset := reset
-  txMBFifo.io.deq_clock := io.mainbandIo.fifoParams.clk
-  txMBFifo.io.deq_reset := io.mainbandIo.fifoParams.reset
+  txMBFifo.io.deq_clock := io.mainbandLaneIO.fifoParams.clk
+  txMBFifo.io.deq_reset := io.mainbandLaneIO.fifoParams.reset
 
   assert(
     afeParams.mbSerializerRatio > 8 && afeParams.mbSerializerRatio % 8 == 0,
@@ -115,25 +115,25 @@ class Lanes(
   rxScrambler.io.valid := rxMBFifo.io.deq.fire
   descrambledRx := rxScrambler.io.data_out
   txScrambler.io.data_in := OneToLanes(
-    io.mainbandLaneIO.txData.bits,
+    io.mainbandIO.txData.bits,
     afeParams.mbLanes,
     afeParams.mbSerializerRatio,
   )
-  txScrambler.io.valid := io.mainbandLaneIO.txData.fire
+  txScrambler.io.valid := io.mainbandIO.txData.fire
   scrambledTx := txScrambler.io.data_out
 
   /** Queue data into FIFOs */
 
-  txMBFifo.io.enq.valid := io.mainbandLaneIO.txData.valid
-  io.mainbandLaneIO.txData.ready := txMBFifo.io.enq.ready
+  txMBFifo.io.enq.valid := io.mainbandIO.txData.valid
+  io.mainbandIO.txData.ready := txMBFifo.io.enq.ready
   txMBFifo.io.enq.bits := Mux(
     io.scramble,
     scrambledTx,
     txScrambler.io.data_in,
   )
 
-  io.mainbandLaneIO.rxData.valid := rxMBFifo.io.deq.valid
-  io.mainbandLaneIO.rxData.bits := LanesToOne(
+  io.mainbandIO.rxData.valid := rxMBFifo.io.deq.valid
+  io.mainbandIO.rxData.bits := LanesToOne(
     rxDataInput,
     afeParams.mbLanes,
     afeParams.mbSerializerRatio,

@@ -111,7 +111,7 @@ class MBInitFSM(
           if (req) SBM.MBINIT_PARAM_CONFIG_REQ
           else SBM.MBINIT_PARAM_CONFIG_RESP,
           "PHY",
-          true,
+          remote = true,
           "PHY",
           data,
         )

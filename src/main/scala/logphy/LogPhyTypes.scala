@@ -29,7 +29,7 @@ class SBReqMsg extends Bundle {
 }
 
 object MessageRequestType extends ChiselEnum {
-  val EXCHANGE, RECEIVE = Value
+  val EXCHANGE, RECEIVE, SEND = Value
 }
 
 class MessageRequest extends Bundle {
@@ -51,7 +51,10 @@ object ClockModeParam extends ChiselEnum {
 }
 
 object TransmitPattern extends ChiselEnum {
-  val CLOCK, VALTRAIN, LFSR, PER_LANE_ID = Value
+  val LFSR = Value(0.U)
+  val PER_LANE_ID = Value(1.U)
+  val VALTRAIN = Value(2.U)
+  val CLOCK = Value(3.U)
 }
 
 class SBIO(params: AfeParams) extends Bundle {

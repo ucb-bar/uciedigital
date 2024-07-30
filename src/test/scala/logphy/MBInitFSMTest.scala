@@ -33,7 +33,7 @@ class MBInitFSMTest extends AnyFlatSpec with ChiselScalatestTester {
         if (req) SBM.MBINIT_PARAM_CONFIG_REQ
         else SBM.MBINIT_PARAM_CONFIG_RESP,
       src = "PHY",
-      remote = false,
+      remote = true,
       dst = "PHY",
       data = data,
       msgInfo = 0,
@@ -63,14 +63,13 @@ class MBInitFSMTest extends AnyFlatSpec with ChiselScalatestTester {
           if (req) SBM.MBINIT_PARAM_CONFIG_REQ
           else SBM.MBINIT_PARAM_CONFIG_RESP,
         src = "PHY",
-        remote = false,
+        remote = true,
         dst = "PHY",
         data = data,
         msgInfo = 0,
       ).U,
       _.timeoutCycles -> (0.008 * sbClockFreq).toInt.U,
-      // _.reqType -> (if (req) MessageRequestType.MSG_REQ
-      //               else MessageRequestType.MSG_RESP),
+      _.reqType -> MessageRequestType.EXCHANGE,
     )
     msgReq
   }

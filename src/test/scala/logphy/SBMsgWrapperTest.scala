@@ -4,9 +4,10 @@ package logphy
 import chisel3._
 import chisel3.experimental.BundleLiterals._
 import chiseltest._
-import edu.berkeley.cs.ucie.digital.sideband.SidebandParams
 import org.scalatest.flatspec.AnyFlatSpec
 import sideband._
+
+import scala.util.Random
 
 class SBMsgWrapperTest extends AnyFlatSpec with ChiselScalatestTester {
   val sbParams = SidebandParams()
@@ -34,12 +35,56 @@ class SBMsgWrapperTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "correctly receive only" in {
     test(new SBMsgWrapper(sbParams)) { c =>
-      /** TODO */
-      assert(false)
+      initPorts(c)
+      testSBInitReceiveOnly(c)
+      testSBInitReceiveOnly(c)
     }
 
   }
+  private def testSBInitReceiveOnly(c: SBMsgWrapper): Unit = {
+    c.io.laneIO.rxData.ready.expect(false)
+    c.io.laneIO.txData.expectInvalid()
+    c.io.trainIO.msgReq.ready.expect(true)
+    c.io.trainIO.msgReqStatus.expectInvalid()
 
+    c.clock.step()
+    val rand = new Random()
+    val data = BigInt(64, rand)
+    val sbMsg = SBMessage_factory(
+      SBM.SBINIT_OUT_OF_RESET,
+      "PHY",
+      true,
+      "PHY",
+      data = data,
+      msgInfo = 0,
+    )
+    c.io.trainIO.msgReq.enqueueNow(
+      (new MessageRequest).Lit(
+        _.msg -> sbMsg.U,
+        _.reqType -> MessageRequestType.RECEIVE,
+        _.timeoutCycles -> 80.U,
+      ),
+    )
+
+    c.io.trainIO.msgReq.ready.expect(false)
+    for (_ <- 0 until 4) {
+      c.clock.step()
+      c.io.laneIO.txData.expectInvalid()
+    }
+    c.io.laneIO.rxData.enqueueNow(sbMsg.U)
+    for (_ <- 0 until 4) {
+      c.clock.step()
+      c.io.trainIO.msgReqStatus.valid.expect(true.B)
+      c.io.laneIO.txData.expectInvalid()
+    }
+    c.io.trainIO.msgReqStatus.expectDequeue(
+      (new MessageRequestStatus).Lit(
+        _.status ->
+          MessageRequestStatusType.SUCCESS,
+        _.data -> data.U,
+      ),
+    )
+  }
   private def testSBInitOutOfReset(c: SBMsgWrapper): Unit = {
     c.io.laneIO.rxData.ready.expect(false)
     c.io.laneIO.txData.expectInvalid()
