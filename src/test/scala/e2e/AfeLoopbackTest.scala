@@ -83,10 +83,10 @@ class AfeLoopbackTester(implicit p: Parameters) extends LazyModule {
     io.uci_clock <> clockSourceNode.out(0)._1
     // inputs to tlUcieDie1
     // tlUcieDie1.module.io.mbAfe <> AfeLoopback.io.mbAfe
-    tlUcieDie1.module.io.mbAfe_tx <> AfeLoopback.io.mbAfe_tx
-    tlUcieDie1.module.io.mbAfe_rx <> AfeLoopback.io.mbAfe_rx
-    tlUcieDie1.module.io.sbTxIo <> AfeLoopback.io.sbAfe_tx
-    tlUcieDie1.module.io.sbRxIo <> AfeLoopback.io.sbAfe_rx
+    tlUcieDie1.module.io.mbAfe_tx.get <> AfeLoopback.io.mbAfe_tx
+    tlUcieDie1.module.io.mbAfe_rx.get <> AfeLoopback.io.mbAfe_rx
+    tlUcieDie1.module.io.txSbAfe <> AfeLoopback.io.sbAfe_tx
+    tlUcieDie1.module.io.rxSbAfe <> AfeLoopback.io.sbAfe_rx
 
   }
 }
