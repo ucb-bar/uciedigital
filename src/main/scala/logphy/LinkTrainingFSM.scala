@@ -61,9 +61,7 @@ class LinkTrainingFSM(
       val rdiBringupIO = new RdiBringupIO
     }
     val trainingOperationIO =
-      Input(
-        new TrainingOperation(afeParams, linkTrainingParams.maxPatternCount),
-      )
+      new TrainingOperation(afeParams, linkTrainingParams.maxPatternCount)
     val currentState = Output(LinkTrainingState())
   })
 
@@ -363,7 +361,8 @@ class LinkTrainingFSM(
         nextState := Mux(
           mbInit.io.error,
           LinkTrainingState.linkError,
-          LinkTrainingState.mbTrain,
+          if (afeParams.STANDALONE) { LinkTrainingState.linkInit }
+          else { LinkTrainingState.mbTrain },
         )
       }
     }

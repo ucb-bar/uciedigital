@@ -31,6 +31,9 @@ class LogicalPhy(
     )
   }
 
+  /** TODO: replace this with MMIO module instantiations */
+  trainingModule.io.trainingOperationIO := DontCare
+
   if (afeParams.STANDALONE) {
     trainingModule.io.mainbandFSMIO.pllLock <> io.mbAfe.get.pllLock
   } else { trainingModule.io.mainbandFSMIO.pllLock := 0.U }
@@ -82,7 +85,6 @@ class LogicalPhy(
   lanes.io.scramble := true.B
 
   /** Connect internal FIFO to AFE */
-
   if (afeParams.STANDALONE) {
     lanes.io.mainbandLaneIO.txData <> io.mbAfe.get.txData
     lanes.io.mainbandLaneIO.rxData <> io.mbAfe.get.rxData

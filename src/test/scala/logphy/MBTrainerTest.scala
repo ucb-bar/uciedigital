@@ -25,11 +25,17 @@ class MBTrainerTest extends AnyFlatSpec with ChiselScalatestTester {
         linkTrainingParams.sbClockFreqAnalog / afeParams.sbSerializerRatio
       val timeoutCyclesDefault = (0.008 * sbClockFreq).toInt
       var patternUICount = afeParams.mbLanes * afeParams.mbSerializerRatio * 4
+      val maxErrors = 0
 
       initialExpectedValues(c)
-      triggerOperation(c, transmitPattern, patternUICount)
+      triggerOperation(
+        c,
+        transmitPattern,
+        patternUICount,
+        timeoutCyclesDefault,
+        maxErrors,
+      )
 
-      val maxErrors = 0
       var errorCount = Vec.Lit(
         Seq.fill(afeParams.mbLanes)(1.U(maxPatternCountWidth.W)): _*,
       )
@@ -38,7 +44,6 @@ class MBTrainerTest extends AnyFlatSpec with ChiselScalatestTester {
         transmitPattern,
         timeoutCyclesDefault,
         patternUICount,
-        maxErrors,
         errorCount,
       )
 
@@ -48,17 +53,23 @@ class MBTrainerTest extends AnyFlatSpec with ChiselScalatestTester {
         Seq.tabulate(afeParams.mbLanes)(x => x.U(maxPatternCountWidth.W)): _*,
       )
 
-      triggerOperation(c, transmitPattern, patternUICount)
+      triggerOperation(
+        c,
+        transmitPattern,
+        patternUICount,
+        timeoutCyclesDefault,
+        maxErrors,
+      )
 
       completeTrainingOperation(
         c,
         transmitPattern,
         timeoutCyclesDefault,
         patternUICount,
-        maxErrors,
         errorCount,
       )
 
+      triggerExit(c, timeoutCyclesDefault)
       exitTraining(c, timeoutCyclesDefault)
 
     }
@@ -71,20 +82,28 @@ class MBTrainerTest extends AnyFlatSpec with ChiselScalatestTester {
         linkTrainingParams.sbClockFreqAnalog / afeParams.sbSerializerRatio
       val timeoutCyclesDefault = (0.008 * sbClockFreq).toInt
       var patternUICount = afeParams.mbLanes * afeParams.mbSerializerRatio * 4
+      val maxErrors = 0
 
       initialExpectedValues(c)
-      triggerOperation(c, transmitPattern, patternUICount)
 
-      val maxErrors = 0
+      /** Trigger operation via sideband */
+      triggerOperationSB(
+        c,
+        timeoutCyclesDefault,
+        transmitPattern,
+        patternUICount,
+        maxErrors,
+      )
+
       var errorCount = Vec.Lit(
         Seq.fill(afeParams.mbLanes)(1.U(maxPatternCountWidth.W)): _*,
       )
+
       completeTrainingOperation(
         c,
         transmitPattern,
         timeoutCyclesDefault,
         patternUICount,
-        maxErrors,
         errorCount,
       )
 
@@ -94,20 +113,63 @@ class MBTrainerTest extends AnyFlatSpec with ChiselScalatestTester {
         Seq.tabulate(afeParams.mbLanes)(x => x.U(maxPatternCountWidth.W)): _*,
       )
 
-      triggerOperation(c, transmitPattern, patternUICount)
+      /** NOTE: cannot re-trigger operation with sideband as sideband is not
+        * expecting a begin training request
+        */
+      triggerOperation(
+        c,
+        transmitPattern,
+        patternUICount,
+        timeoutCyclesDefault,
+        maxErrors,
+      )
 
       completeTrainingOperation(
         c,
         transmitPattern,
         timeoutCyclesDefault,
         patternUICount,
-        maxErrors,
         errorCount,
       )
+
+      /** Trigger exit via sideband */
+      triggerExitSB(c, timeoutCyclesDefault)
 
       exitTraining(c, timeoutCyclesDefault)
 
     }
+  }
+
+  private def triggerExitSB(c: MBTrainer, timeoutCyclesDefault: Int): Unit = {
+
+    expectSBReq(
+      c = c,
+      bitPat = SBM.MBTRAIN_END_TX_INIT_D_TO_C_POINT_TEST_REQ,
+      MessageRequestType.RECEIVE,
+      timeoutCyclesDefault,
+      msgInfo = 0,
+      data = 0,
+    )
+    sbMsgSuccess(c)
+  }
+
+  private def triggerOperationSB(
+      c: MBTrainer,
+      timeoutCyclesDefault: Int,
+      transmitPattern: TransmitPattern.Type,
+      patternUICount: Int,
+      maxErrors: Int,
+  ): Unit = {
+    val data = 0 | transmitPattern.litValue | (BigInt(patternUICount) << 43)
+    expectSBReq(
+      c,
+      SBM.MBTRAIN_START_TX_INIT_D_TO_C_POINT_TEST_REQ,
+      MessageRequestType.RECEIVE,
+      timeoutCyclesDefault,
+      msgInfo = 0,
+      data = 0,
+    )
+    sbMsgSuccess(c, data)
   }
 
   private def initialExpectedValues(c: MBTrainer): Unit = {
@@ -122,21 +184,6 @@ class MBTrainerTest extends AnyFlatSpec with ChiselScalatestTester {
   }
 
   private def exitTraining(c: MBTrainer, timeoutCyclesDefault: Int): Unit = {
-
-    /** Trigger exit */
-    triggerExit(c)
-
-    /** Expect Pt Test End Test Req */
-    expectSBReq(
-      c = c,
-      bitPat = SBM.MBTRAIN_END_TX_INIT_D_TO_C_POINT_TEST_REQ,
-      reqType = MessageRequestType.SEND,
-      timeoutCyclesDefault = timeoutCyclesDefault,
-      msgInfo = 0,
-      data = 0,
-    )
-
-    sbMsgSuccess(c)
 
     expectSBReq(
       c = c,
@@ -154,16 +201,30 @@ class MBTrainerTest extends AnyFlatSpec with ChiselScalatestTester {
     c.io.err.expect(false.B)
   }
 
-  private def triggerExit(c: MBTrainer): Unit = {
+  private def triggerExit(c: MBTrainer, timeoutCyclesDefault: Int): Unit = {
     c.io.trainingOperationIO.triggerExit.poke(true.B)
     c.clock.step()
     c.io.trainingOperationIO.triggerExit.poke(false.B)
+
+    /** Expect Pt Test End Test Req */
+    expectSBReq(
+      c = c,
+      bitPat = SBM.MBTRAIN_END_TX_INIT_D_TO_C_POINT_TEST_REQ,
+      reqType = MessageRequestType.SEND,
+      timeoutCyclesDefault = timeoutCyclesDefault,
+      msgInfo = 0,
+      data = 0,
+    )
+
+    sbMsgSuccess(c)
   }
 
   private def triggerOperation(
       c: MBTrainer,
       transmitPattern: TransmitPattern.Type,
       patternUICount: Int,
+      timeoutCyclesDefault: Int,
+      maxErrors: Int,
   ): Unit = {
     c.io.trainingOperationIO.triggerNew.poke(true.B)
     c.io.trainingOperationIO.pattern.poke(transmitPattern)
@@ -174,18 +235,6 @@ class MBTrainerTest extends AnyFlatSpec with ChiselScalatestTester {
     c.io.patternGeneratorIO.transmitReq.expectInvalid()
     c.io.patternGeneratorIO.resp.ready.expect(false.B)
     println("External trigger")
-  }
-
-  private def completeTrainingOperation(
-      c: MBTrainer,
-      transmitPattern: TransmitPattern.Type,
-      timeoutCyclesDefault: Int,
-      patternUICount: Int,
-      maxErrors: Int,
-      errorCount: Vec[UInt],
-  ): Unit = {
-
-    println("********** BEGIN TRAINING OPERATION ***********")
 
     val data = 0 | transmitPattern.litValue | (BigInt(patternUICount) << 43)
     expectSBReq(
@@ -200,6 +249,17 @@ class MBTrainerTest extends AnyFlatSpec with ChiselScalatestTester {
 
     /** Complete PTTest SB request */
     sbMsgSuccess(c)
+  }
+
+  private def completeTrainingOperation(
+      c: MBTrainer,
+      transmitPattern: TransmitPattern.Type,
+      timeoutCyclesDefault: Int,
+      patternUICount: Int,
+      errorCount: Vec[UInt],
+  ): Unit = {
+
+    println("********** BEGIN TRAINING OPERATION ***********")
 
     /** Expect PTTest SB response */
     expectSBReq(
@@ -313,10 +373,10 @@ class MBTrainerTest extends AnyFlatSpec with ChiselScalatestTester {
     c.io.patternGeneratorIO.resp.ready.expect(false.B)
   }
 
-  private def sbMsgSuccess(c: MBTrainer): Unit = {
+  private def sbMsgSuccess(c: MBTrainer, data: BigInt = 0): Unit = {
     c.io.sbTrainIO.msgReqStatus.enqueueNow(
       (new MessageRequestStatus).Lit(
-        _.data -> 0.U,
+        _.data -> data.U,
         _.status -> MessageRequestStatusType.SUCCESS,
       ),
     )
