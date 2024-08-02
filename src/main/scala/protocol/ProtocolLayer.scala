@@ -67,16 +67,18 @@ class ProtocolLayer(val fdiParams: FdiParams) extends Module {
     //                              io.fdi.plStateStatus === PhyState.active)
     val lp_rx_active_pl_state = (io.fdi.plStateStatus === PhyState.active)
 
-    when(io.fdi.plRxActiveReq && io.TLready_to_rcv && lp_rx_active_pl_state) {
+    when(io.fdi.plRxActiveReq && io.TLready_to_rcv){//&& lp_rx_active_pl_state) {
         lp_rx_active_sts_reg := true.B
     }
     io.fdi.lpRxActiveStatus := lp_rx_active_sts_reg
 
     // Refer to section 8.2.8 for FDI bringup and state req logic
     val lp_state_req_reg = RegInit(PhyStateReq.nop)
+    //val lp_state_req_prev = RegInit(PhyState.nop)
+    //lp_state_req_prev := io.fdi.plStateStatus
 
+    // Removed: lp_state_req_prev === PhyState.nop &
     val reqActive = ((io.fdi.plStateStatus === PhyState.reset &
-                    lp_state_req_reg === PhyStateReq.nop &
                     io.fdi.plInbandPres) || io.fdi.plStateStatus === PhyState.linkReset)
 
     when(reqActive) {

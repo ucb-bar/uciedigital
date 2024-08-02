@@ -63,6 +63,7 @@ class SBMsgWrapperTest extends AnyFlatSpec with ChiselScalatestTester {
         _.msg -> sbMsg.U,
         _.reqType -> MessageRequestType.RECEIVE,
         _.timeoutCycles -> 80.U,
+        _.repeat -> true.B,
       ),
     )
 
@@ -105,6 +106,7 @@ class SBMsgWrapperTest extends AnyFlatSpec with ChiselScalatestTester {
         _.msg -> sbMsg.U,
         _.reqType -> MessageRequestType.EXCHANGE,
         _.timeoutCycles -> 80.U,
+        _.repeat -> true.B,
       ),
     )
 

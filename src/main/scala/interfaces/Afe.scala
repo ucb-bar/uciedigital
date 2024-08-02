@@ -25,7 +25,7 @@ class MainbandIo(lanes: Int = 16) extends Bundle {
   */
 class SidebandIo extends Bundle {
   val data = Bool()
-  val clk = Clock()
+  val clk = Bool()
 }
 
 /** The pins (mainband and sideband) exposed by a standard package UCIe module
@@ -49,6 +49,7 @@ case class AfeParams(
     sbWidth: Int = 1,
     mbSerializerRatio: Int = 16,
     mbLanes: Int = 16,
+    STANDALONE: Boolean = true
 )
 
 /** The sideband analog front-end (AFE) interface, from the perspective of the
@@ -61,8 +62,6 @@ case class AfeParams(
 class SidebandAfeIo(
     afeParams: AfeParams,
 ) extends Bundle {
-
-  val fifoParams = Input(new FifoParams())
 
   /** Data to transmit on the sideband.
     *

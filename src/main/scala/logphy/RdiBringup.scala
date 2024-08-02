@@ -51,6 +51,7 @@ class RdiBringup extends Module {
   private val nextState = WireInit(state)
   io.active := state === PhyState.active
   io.sbTrainIO.msgReq.noenq()
+  io.sbTrainIO.msgReq.bits.repeat := false.B
   io.sbTrainIO.msgReqStatus.nodeq()
   state := nextState
   when(io.internalError || io.rdiIO.lpLinkError) {
@@ -121,7 +122,7 @@ class RdiBringup extends Module {
 
           /** TODO: how many timeout cycles here? */
           io.sbTrainIO.msgReq.bits.timeoutCycles := 1_000_000.U
-          when(io.sbTrainIO.msgReqStatus.fire) {
+          when(io.sbTrainIO.msgReq.fire) {
             resetSubstate := ResetSubState.RESP_ACTIVE_WAIT
           }
         }

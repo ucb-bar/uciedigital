@@ -13,22 +13,30 @@ class SBMsgWrapperTrainIO(
 
 class SBMsgWriter(sbParams: SidebandParams) extends Module {
   val io = IO(new Bundle {
-    val req = Flipped(Valid(UInt(128.W)))
+    val req = Flipped(Valid(new Bundle {
+      val data = UInt(128.W)
+      val repeat = Bool()
+    }))
     val result = Valid(MessageRequestStatusType())
     val txData = Decoupled(Bits(sbParams.sbNodeMsgWidth.W))
   })
+  val canReceiveReq = RegInit(true.B)
   val inProgress = RegInit(false.B)
   val complete = RegInit(false.B)
-  when(io.req.fire && !inProgress) {
+  when(io.req.fire && canReceiveReq) {
     inProgress := true.B
+    canReceiveReq := false.B
     complete := false.B
   }
   io.txData.valid := inProgress
-  io.txData.bits := io.req.bits
+  io.txData.bits := io.req.bits.data
   when(inProgress && io.txData.fire) {
 
     /** continuously resend */
     complete := true.B
+    when(!io.req.bits.repeat) {
+      inProgress := false.B
+    }
   }
   io.result.valid := complete || io.txData.fire
   io.result.bits := MessageRequestStatusType.SUCCESS
@@ -51,11 +59,13 @@ class SBMsgReader(sbParams: SidebandParams) extends Module {
     (m1(39, 32) === m2(39, 32))
   }
 
+  val canReceiveReq = RegInit(true.B)
   val inProgress = RegInit(false.B)
   val complete = RegInit(false.B)
-  when(io.req.fire && !inProgress) {
+  when(io.req.fire && canReceiveReq) {
     inProgress := true.B
     complete := false.B
+    canReceiveReq := false.B
   }
 
   /** if receive message, move on */
@@ -109,6 +119,7 @@ class SBMsgWrapper(
   private val currentReq = RegInit(0.U((new MessageRequest).msg.getWidth.W))
   private val currentReqTimeoutMax = RegInit(0.U(64.W))
   private val currentStatus = RegInit(MessageRequestStatusType.ERR)
+  private val repeat = RegInit(false.B)
 
   private val dataOut = RegInit(0.U(64.W))
   io.trainIO.msgReqStatus.bits.data := dataOut
@@ -119,7 +130,8 @@ class SBMsgWrapper(
   sbMsgReader.io.rxData <> io.laneIO.rxData
   sbMsgWriter.io.txData <> io.laneIO.txData
   sbMsgReader.io.req.bits := currentReq
-  sbMsgWriter.io.req.bits := currentReq
+  sbMsgWriter.io.req.bits.data := currentReq
+  sbMsgWriter.io.req.bits.repeat := repeat
   sbMsgReader.io.req.valid := false.B
   sbMsgWriter.io.req.valid := false.B
   private val requestToState = Seq(
@@ -137,6 +149,7 @@ class SBMsgWrapper(
         nextState := MuxLookup(io.trainIO.msgReq.bits.reqType, State.EXCHANGE)(
           requestToState,
         )
+        repeat := io.trainIO.msgReq.bits.repeat
       }
     }
     is(State.EXCHANGE) {

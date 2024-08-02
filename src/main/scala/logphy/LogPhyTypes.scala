@@ -7,7 +7,8 @@ import sideband.SidebandParams
 import interfaces._
 
 object LinkTrainingState extends ChiselEnum {
-  val reset, sbInit, mbInit, linkInit, active, linkError, retrain = Value
+  val reset, sbInit, mbInit, mbTrain, linkInit, active, linkError, retrain =
+    Value
 }
 
 object MsgSource extends ChiselEnum {
@@ -36,6 +37,7 @@ class MessageRequest extends Bundle {
   val msg = UInt(128.W)
   val timeoutCycles = UInt(64.W)
   val reqType = MessageRequestType()
+  val repeat = Bool()
 }
 
 class MessageRequestStatus extends Bundle {

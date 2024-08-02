@@ -7,7 +7,6 @@ import chisel3._
 import freechips.rocketchip.util.AsyncQueueParams
 
 class LogicalPhy(
-    myId: BigInt,
     linkTrainingParams: LinkTrainingParams,
     afeParams: AfeParams,
     rdiParams: RdiParams,
@@ -18,7 +17,11 @@ class LogicalPhy(
 
   val io = IO(new Bundle {
     val rdi = Flipped(new Rdi(rdiParams))
-    val mbAfe = new MainbandAfeIo(afeParams)
+    val mbAfe =
+      if (afeParams.STANDALONE) Some(new MainbandAfeIo(afeParams)) else None
+    val phyAfe =
+      if (afeParams.STANDALONE) None
+      else Some(Flipped(new MainbandLaneIO(afeParams)))
     val sbAfe = new SidebandAfeIo(afeParams)
   })
 
@@ -28,9 +31,13 @@ class LogicalPhy(
     )
   }
 
-  trainingModule.io.mainbandFSMIO.pllLock <> io.mbAfe.pllLock
+  if (afeParams.STANDALONE) {
+    trainingModule.io.mainbandFSMIO.pllLock <> io.mbAfe.get.pllLock
+  } else { trainingModule.io.mainbandFSMIO.pllLock := 0.U }
   trainingModule.io.sidebandFSMIO.pllLock <> io.sbAfe.pllLock
-  trainingModule.io.mainbandFSMIO.rxEn <> io.mbAfe.rxEn
+  if (afeParams.STANDALONE) {
+    trainingModule.io.mainbandFSMIO.rxEn <> io.mbAfe.get.rxEn
+  }
   trainingModule.io.sidebandFSMIO.rxEn <> io.sbAfe.rxEn
   trainingModule.io.rdi.rdiBringupIO.lpStateReq <> io.rdi.lpStateReq
 
@@ -51,7 +58,9 @@ class LogicalPhy(
 
   io.rdi.plPhyInRecenter := io.rdi.plStateStatus === PhyState.retrain
   io.rdi.plSpeedMode <> trainingModule.io.mainbandFSMIO.txFreqSel
-  io.mbAfe.txFreqSel <> trainingModule.io.mainbandFSMIO.txFreqSel
+  if (afeParams.STANDALONE) {
+    io.mbAfe.get.txFreqSel <> trainingModule.io.mainbandFSMIO.txFreqSel
+  }
   io.rdi.plLinkWidth := PhyWidth.width16
   io.rdi.plClkReq <> trainingModule.io.rdi.rdiBringupIO.plClkReq
   io.rdi.plWakeAck <> trainingModule.io.rdi.rdiBringupIO.plWakeAck
@@ -63,7 +72,7 @@ class LogicalPhy(
   io.rdi.lpLinkError <> trainingModule.io.rdi.rdiBringupIO.lpLinkError
 
   /** TODO: is this correct behavior, look at spec */
-  io.rdi.plInbandPres := trainingModule.io.currentState === LinkTrainingState.active
+  io.rdi.plInbandPres := trainingModule.io.currentState === LinkTrainingState.linkInit || trainingModule.io.currentState === LinkTrainingState.active
 
   val rdiDataMapper = Module(new RdiDataMapper(rdiParams, afeParams))
 
@@ -73,27 +82,43 @@ class LogicalPhy(
   lanes.io.scramble := true.B
 
   /** Connect internal FIFO to AFE */
-  when(trainingModule.io.currentState === LinkTrainingState.active) {
-    rdiDataMapper.io.mainbandLaneIO <> lanes.io.mainbandIO
-    trainingModule.io.mainbandFSMIO.mainbandIO.rxData.noenq()
-    trainingModule.io.mainbandFSMIO.mainbandIO.txData.nodeq()
-  }.otherwise {
-    rdiDataMapper.io.mainbandLaneIO.rxData.noenq()
-    rdiDataMapper.io.mainbandLaneIO.txData.nodeq()
-    trainingModule.io.mainbandFSMIO.mainbandIO <> lanes.io.mainbandIO
-  }
-  lanes.io.mainbandLaneIO.txData <> io.mbAfe.txData
-  lanes.io.mainbandLaneIO.rxData <> io.mbAfe.rxData
-  lanes.io.mainbandLaneIO.fifoParams <> io.mbAfe.fifoParams
 
-  /** TODO: need to hook up lane scrambling boolean to states */
+  if (afeParams.STANDALONE) {
+    lanes.io.mainbandLaneIO.txData <> io.mbAfe.get.txData
+    lanes.io.mainbandLaneIO.rxData <> io.mbAfe.get.rxData
+    lanes.io.mainbandLaneIO.fifoParams <> io.mbAfe.get.fifoParams
+    when(trainingModule.io.currentState === LinkTrainingState.active) {
+      rdiDataMapper.io.mainbandLaneIO <> lanes.io.mainbandIO
+      trainingModule.io.mainbandFSMIO.mainbandIO.rxData.noenq()
+      trainingModule.io.mainbandFSMIO.mainbandIO.txData.nodeq()
+    }.otherwise {
+      rdiDataMapper.io.mainbandLaneIO.rxData.noenq()
+      rdiDataMapper.io.mainbandLaneIO.txData.nodeq()
+      trainingModule.io.mainbandFSMIO.mainbandIO <> lanes.io.mainbandIO
+    }
+  } else {
+    rdiDataMapper.io.mainbandLaneIO <> io.phyAfe.get
+    // defaults to zero
+    /** TODO: not sure what is going on here */
+    lanes.io.mainbandLaneIO.fifoParams.clk := 0.U.asTypeOf(Clock())
+    lanes.io.mainbandLaneIO.fifoParams.reset := 0.U
+    lanes.io.mainbandLaneIO.txData.ready := 0.U
+    lanes.io.mainbandLaneIO.rxData.valid := 0.U
+    lanes.io.mainbandLaneIO.rxData.bits := 0.U.asTypeOf(
+      lanes.io.mainbandIO.rxData.bits,
+    )
+    lanes.io.mainbandLaneIO.txData.valid := 0.U
+    lanes.io.mainbandLaneIO.txData.bits := 0.U.asTypeOf(
+      lanes.io.mainbandIO.txData.bits,
+    )
+  }
 
   /** Connect RDI to Mainband IO */
   rdiDataMapper.io.rdi.lpData <> io.rdi.lpData
   io.rdi.plData <> rdiDataMapper.io.rdi.plData
 
   private val sidebandChannel =
-    Module(new PHYSidebandChannel(myId, sbParams, fdiParams))
+    Module(new PHYSidebandChannel(sbParams = sbParams, fdiParams = fdiParams))
   assert(
     afeParams.sbSerializerRatio == 1,
     "connecting sideband module directly to training module, sb serializer ratio must be 1!",

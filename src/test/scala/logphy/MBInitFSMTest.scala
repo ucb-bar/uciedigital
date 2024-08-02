@@ -70,6 +70,7 @@ class MBInitFSMTest extends AnyFlatSpec with ChiselScalatestTester {
       ).U,
       _.timeoutCycles -> (0.008 * sbClockFreq).toInt.U,
       _.reqType -> MessageRequestType.EXCHANGE,
+      _.repeat -> false.B,
     )
     msgReq
   }

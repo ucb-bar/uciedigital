@@ -7,12 +7,15 @@ import chisel3.util._
 import sideband.{SBM, SBMessage_factory}
 
 /** TODO: make timeout cycles optional */
-class TrainingOperation(maxPatternCount: Int) extends Bundle {
+class TrainingOperation(afeParams: AfeParams, maxPatternCount: Int)
+    extends Bundle {
   val maxPatternCountWidth = log2Ceil(maxPatternCount + 1)
-  val pattern = TransmitPattern()
-  val patternUICount = UInt(maxPatternCountWidth.W)
-  val triggerNew = Bool()
-  val triggerExit = Bool()
+  val pattern = Input(TransmitPattern())
+  val patternUICount = Input(UInt(maxPatternCountWidth.W))
+  val triggerNew = Input(Bool())
+  val triggerExit = Input(Bool())
+  val outputValid = Output(Bool())
+  val errorCounts = Output(Vec(afeParams.mbLanes, UInt(maxPatternCountWidth.W)))
 }
 
 class MBTrainer(
@@ -25,7 +28,7 @@ class MBTrainer(
     linkTrainingParams.sbClockFreqAnalog / afeParams.sbSerializerRatio
 
   val io = IO(new Bundle {
-    val trainingOperationIO = Input(new TrainingOperation(maxPatternCount))
+    val trainingOperationIO = new TrainingOperation(afeParams, maxPatternCount)
     val sbTrainIO = Flipped(new SBMsgWrapperTrainIO)
     val sbMsgWrapperReset = Output(Bool())
     val patternGeneratorIO =
@@ -36,6 +39,7 @@ class MBTrainer(
 
   io.sbTrainIO.msgReq.noenq()
   io.sbTrainIO.msgReqStatus.nodeq()
+  io.sbTrainIO.msgReq.bits.repeat := false.B
   io.patternGeneratorIO.transmitReq.noenq()
   io.patternGeneratorIO.resp.nodeq()
 
@@ -115,6 +119,7 @@ class MBTrainer(
     )
     msgReq.timeoutCycles := (0.008 * sbClockFreq).toInt.U
     msgReq.reqType := reqType
+    msgReq.repeat := false.B
     msgReq
   }
 
@@ -130,12 +135,16 @@ class MBTrainer(
     )
     msgReq.timeoutCycles := (0.008 * sbClockFreq).toInt.U
     msgReq.reqType := reqType
+    msgReq.repeat := false.B
     msgReq
   }
 
   private val errorCount = Reg(
     chiselTypeOf(io.patternGeneratorIO.resp.bits.errorCount),
   )
+  private val errorCountValid = RegInit(false.B)
+  io.trainingOperationIO.errorCounts := errorCount
+  io.trainingOperationIO.outputValid := errorCountValid
 
   switch(currentState) {
     is(State.WAIT_PTTEST_REQ_SEND) {
@@ -283,7 +292,7 @@ class MBTrainer(
       }
     }
     is(State.PTTEST_RESULTS_RESP_WAIT) {
-      receiveSBMsg(State.TRAIN_PATTERN_FINISHED_WAIT)
+      receiveSBMsg(State.TRAIN_PATTERN_FINISHED_SEND)
     }
     is(State.TRAIN_PATTERN_FINISHED_SEND) {
 
@@ -292,6 +301,7 @@ class MBTrainer(
         */
 
       io.sbTrainIO.msgReq.valid := true.B
+      errorCountValid := true.B
       io.sbTrainIO.msgReq.bits.msg := SBMessage_factory(
         SBM.MBTRAIN_END_TX_INIT_D_TO_C_POINT_TEST_REQ,
         "PHY",
@@ -309,7 +319,7 @@ class MBTrainer(
       receiveSBMsg(nextState)
     }
     is(State.PTTEST_END_TEST_REQ_SEND) {
-      val reqType = MessageRequestType.EXCHANGE
+      val reqType = MessageRequestType.SEND
       sendSBReq(
         SBM.MBTRAIN_END_TX_INIT_D_TO_C_POINT_TEST_REQ,
         reqType,

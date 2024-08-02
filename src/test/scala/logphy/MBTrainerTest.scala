@@ -20,100 +20,269 @@ class MBTrainerTest extends AnyFlatSpec with ChiselScalatestTester {
   it should "correctly exchange SB out of reset message external trigger" in {
     test(new MBTrainer(linkTrainingParams, afeParams, maxPatternCount)) { c =>
       initPorts(c)
-      val transmitPattern = TransmitPattern.LFSR
+      var transmitPattern = TransmitPattern.LFSR
       val sbClockFreq =
         linkTrainingParams.sbClockFreqAnalog / afeParams.sbSerializerRatio
       val timeoutCyclesDefault = (0.008 * sbClockFreq).toInt
-      val patternUICount = afeParams.mbLanes * afeParams.mbSerializerRatio * 4
+      var patternUICount = afeParams.mbLanes * afeParams.mbSerializerRatio * 4
 
-      /** Initial expected values */
+      initialExpectedValues(c)
+      triggerOperation(c, transmitPattern, patternUICount)
+
+      val maxErrors = 0
+      var errorCount = Vec.Lit(
+        Seq.fill(afeParams.mbLanes)(1.U(maxPatternCountWidth.W)): _*,
+      )
+      completeTrainingOperation(
+        c,
+        transmitPattern,
+        timeoutCyclesDefault,
+        patternUICount,
+        maxErrors,
+        errorCount,
+      )
+
+      transmitPattern = TransmitPattern.PER_LANE_ID
+      patternUICount = afeParams.mbLanes * afeParams.mbSerializerRatio
+      errorCount = Vec.Lit(
+        Seq.tabulate(afeParams.mbLanes)(x => x.U(maxPatternCountWidth.W)): _*,
+      )
+
+      triggerOperation(c, transmitPattern, patternUICount)
+
+      completeTrainingOperation(
+        c,
+        transmitPattern,
+        timeoutCyclesDefault,
+        patternUICount,
+        maxErrors,
+        errorCount,
+      )
+
+      exitTraining(c, timeoutCyclesDefault)
+
+    }
+  }
+  it should "correctly exchange SB out of reset message sideband trigger" in {
+    test(new MBTrainer(linkTrainingParams, afeParams, maxPatternCount)) { c =>
+      initPorts(c)
+      var transmitPattern = TransmitPattern.LFSR
+      val sbClockFreq =
+        linkTrainingParams.sbClockFreqAnalog / afeParams.sbSerializerRatio
+      val timeoutCyclesDefault = (0.008 * sbClockFreq).toInt
+      var patternUICount = afeParams.mbLanes * afeParams.mbSerializerRatio * 4
+
+      initialExpectedValues(c)
+      triggerOperation(c, transmitPattern, patternUICount)
+
+      val maxErrors = 0
+      var errorCount = Vec.Lit(
+        Seq.fill(afeParams.mbLanes)(1.U(maxPatternCountWidth.W)): _*,
+      )
+      completeTrainingOperation(
+        c,
+        transmitPattern,
+        timeoutCyclesDefault,
+        patternUICount,
+        maxErrors,
+        errorCount,
+      )
+
+      transmitPattern = TransmitPattern.PER_LANE_ID
+      patternUICount = afeParams.mbLanes * afeParams.mbSerializerRatio
+      errorCount = Vec.Lit(
+        Seq.tabulate(afeParams.mbLanes)(x => x.U(maxPatternCountWidth.W)): _*,
+      )
+
+      triggerOperation(c, transmitPattern, patternUICount)
+
+      completeTrainingOperation(
+        c,
+        transmitPattern,
+        timeoutCyclesDefault,
+        patternUICount,
+        maxErrors,
+        errorCount,
+      )
+
+      exitTraining(c, timeoutCyclesDefault)
+
+    }
+  }
+
+  private def initialExpectedValues(c: MBTrainer): Unit = {
+    c.io.patternGeneratorIO.transmitReq.expectInvalid()
+    c.io.patternGeneratorIO.resp.ready.expect(false.B)
+    c.io.sbTrainIO.msgReqStatus.ready.expect(false.B)
+    c.io.complete.expect(false.B)
+    c.io.trainingOperationIO.outputValid.expect(false.B)
+    c.io.err.expect(false.B)
+    c.io.sbMsgWrapperReset.expect(false.B)
+    c.clock.step()
+  }
+
+  private def exitTraining(c: MBTrainer, timeoutCyclesDefault: Int): Unit = {
+
+    /** Trigger exit */
+    triggerExit(c)
+
+    /** Expect Pt Test End Test Req */
+    expectSBReq(
+      c = c,
+      bitPat = SBM.MBTRAIN_END_TX_INIT_D_TO_C_POINT_TEST_REQ,
+      reqType = MessageRequestType.SEND,
+      timeoutCyclesDefault = timeoutCyclesDefault,
+      msgInfo = 0,
+      data = 0,
+    )
+
+    sbMsgSuccess(c)
+
+    expectSBReq(
+      c = c,
+      bitPat = SBM.MBTRAIN_END_TX_INIT_D_TO_C_POINT_TEST_RESP,
+      reqType = MessageRequestType.EXCHANGE,
+      timeoutCyclesDefault = timeoutCyclesDefault,
+      msgInfo = 0,
+      data = 0,
+    )
+
+    sbMsgSuccess(c)
+
+    c.clock.step()
+    c.io.complete.expect(true.B)
+    c.io.err.expect(false.B)
+  }
+
+  private def triggerExit(c: MBTrainer): Unit = {
+    c.io.trainingOperationIO.triggerExit.poke(true.B)
+    c.clock.step()
+    c.io.trainingOperationIO.triggerExit.poke(false.B)
+  }
+
+  private def triggerOperation(
+      c: MBTrainer,
+      transmitPattern: TransmitPattern.Type,
+      patternUICount: Int,
+  ): Unit = {
+    c.io.trainingOperationIO.triggerNew.poke(true.B)
+    c.io.trainingOperationIO.pattern.poke(transmitPattern)
+    c.io.trainingOperationIO.patternUICount.poke(patternUICount.U)
+    c.io.trainingOperationIO.triggerExit.poke(false.B)
+    c.clock.step()
+    c.io.trainingOperationIO.triggerNew.poke(false.B)
+    c.io.patternGeneratorIO.transmitReq.expectInvalid()
+    c.io.patternGeneratorIO.resp.ready.expect(false.B)
+    println("External trigger")
+  }
+
+  private def completeTrainingOperation(
+      c: MBTrainer,
+      transmitPattern: TransmitPattern.Type,
+      timeoutCyclesDefault: Int,
+      patternUICount: Int,
+      maxErrors: Int,
+      errorCount: Vec[UInt],
+  ): Unit = {
+
+    println("********** BEGIN TRAINING OPERATION ***********")
+
+    val data = 0 | transmitPattern.litValue | (BigInt(patternUICount) << 43)
+    expectSBReq(
+      c,
+      SBM.MBTRAIN_START_TX_INIT_D_TO_C_POINT_TEST_REQ,
+      reqType = MessageRequestType.SEND,
+      timeoutCyclesDefault,
+      maxErrors,
+      data,
+    )
+    println("Received SB request for Point Test Start Req")
+
+    /** Complete PTTest SB request */
+    sbMsgSuccess(c)
+
+    /** Expect PTTest SB response */
+    expectSBReq(
+      c,
+      SBM.MBTRAIN_START_TX_INIT_D_TO_C_POINT_TEST_RESP,
+      reqType = MessageRequestType.EXCHANGE,
+      timeoutCyclesDefault,
+      msgInfo = 0,
+      data = 0,
+    )
+    println("Received SB request for Point Test Start Resp")
+
+    /** Complete PTTest SB response */
+    sbMsgSuccess(c)
+
+    /** Expect pattern generator request */
+    c.io.sbTrainIO.msgReqStatus.ready.expect(false.B)
+    c.io.sbTrainIO.msgReq.expectInvalid()
+    c.io.patternGeneratorIO.resp.ready.expect(false.B)
+    c.io.patternGeneratorIO.transmitReq
+      .expectDequeue(
+        (chiselTypeOf(c.io.patternGeneratorIO.transmitReq.bits)).Lit(
+          _.pattern -> transmitPattern,
+          _.timeoutCycles -> timeoutCyclesDefault.U,
+          _.patternCountMax -> patternUICount.U,
+          _.patternDetectedCountMax -> patternUICount.U,
+        ),
+      )
+    println("Received Pattern Generator request")
+
+    /** Complete pattern generator request */
+    c.io.sbTrainIO.msgReqStatus.ready.expect(false.B)
+    c.io.sbTrainIO.msgReq.expectInvalid()
+    c.io.patternGeneratorIO.resp.enqueueNow(
+      (chiselTypeOf(c.io.patternGeneratorIO.resp.bits)).Lit(
+        _.status -> MessageRequestStatusType.SUCCESS,
+        _.errorCount -> errorCount,
+      ),
+    )
+
+    c.io.trainingOperationIO.errorCounts.expect(errorCount)
+
+    /** Expect Results Req req */
+    expectSBReq(
+      c,
+      SBM.MBTRAIN_TX_INIT_D_TO_C_RESULTS_REQ,
+      reqType = MessageRequestType.EXCHANGE,
+      timeoutCyclesDefault,
+      msgInfo = 0,
+      data = 0,
+    )
+    println("Received SB request for Results request")
+
+    /** Complete Results req */
+    sbMsgSuccess(c)
+
+    /** Expect Results Resp req */
+    expectSBReq(
+      c,
+      SBM.MBTRAIN_TX_INIT_D_TO_C_RESULTS_RESP,
+      reqType = MessageRequestType.EXCHANGE,
+      timeoutCyclesDefault,
+      msgInfo = 0,
+      data = 0,
+    )
+    println("Received SB request for Results response")
+
+    sbMsgSuccess(c)
+
+    /** Now, the test should be waiting for either external intervention or a SB
+      * request...
+      */
+    for (_ <- 0 until 10) {
+      c.clock.step()
       c.io.patternGeneratorIO.transmitReq.expectInvalid()
       c.io.patternGeneratorIO.resp.ready.expect(false.B)
-      c.io.sbTrainIO.msgReqStatus.ready.expect(false.B)
       c.io.complete.expect(false.B)
       c.io.err.expect(false.B)
       c.io.sbMsgWrapperReset.expect(false.B)
-      c.clock.step()
-
-      /** Trigger externally */
-      c.io.trainingOperationIO.triggerNew.poke(true.B)
-      c.io.trainingOperationIO.pattern.poke(transmitPattern)
-      c.io.trainingOperationIO.patternUICount.poke(patternUICount.U)
-      c.clock.step()
-      c.io.patternGeneratorIO.transmitReq.expectInvalid()
-      c.io.patternGeneratorIO.resp.ready.expect(false.B)
-
-      /** Expect PTTest SB request */
-      val maxErrors = 0
-      val data = 0 | transmitPattern.litValue | (BigInt(patternUICount) << 43)
-      expectSBReq(
-        c,
-        SBM.MBTRAIN_START_TX_INIT_D_TO_C_POINT_TEST_REQ,
-        reqType = MessageRequestType.SEND,
-        timeoutCyclesDefault,
-        maxErrors,
-        data,
-      )
-
-      /** Complete PTTest SB request */
-      sbMsgSuccess(c)
-
-      /** Expect PTTest SB response */
-      expectSBReq(
-        c,
-        SBM.MBTRAIN_START_TX_INIT_D_TO_C_POINT_TEST_RESP,
-        reqType = MessageRequestType.EXCHANGE,
-        timeoutCyclesDefault,
-        msgInfo = 0,
-        data = 0,
-      )
-
-      /** Complete PTTest SB response */
-      sbMsgSuccess(c)
-
-      /** Expect pattern generator request */
-      c.io.sbTrainIO.msgReqStatus.ready.expect(false.B)
-      c.io.sbTrainIO.msgReq.expectInvalid()
-      c.io.patternGeneratorIO.resp.ready.expect(false.B)
-      c.io.patternGeneratorIO.transmitReq
-        .expectDequeue(
-          (chiselTypeOf(c.io.patternGeneratorIO.transmitReq.bits)).Lit(
-            _.pattern -> transmitPattern,
-            _.timeoutCycles -> timeoutCyclesDefault.U,
-            _.patternCountMax -> patternUICount.U,
-            _.patternDetectedCountMax -> patternUICount.U,
-          ),
-        )
-
-      /** Complete pattern generator request */
-      val errorCount = Vec.Lit(
-        Seq.fill(afeParams.mbLanes)(1.U(maxPatternCountWidth.W)): _*,
-      )
-      c.io.sbTrainIO.msgReqStatus.ready.expect(false.B)
-      c.io.sbTrainIO.msgReq.expectInvalid()
-      c.io.patternGeneratorIO.resp.enqueueNow(
-        (chiselTypeOf(c.io.patternGeneratorIO.resp.bits)).Lit(
-          _.status -> MessageRequestStatusType.SUCCESS,
-          _.errorCount -> errorCount,
-        ),
-      )
-
-      /** Expect Results Req req */
-      expectSBReq(
-        c,
-        SBM.MBTRAIN_TX_INIT_D_TO_C_RESULTS_REQ,
-        reqType = MessageRequestType.EXCHANGE,
-        timeoutCyclesDefault,
-        msgInfo = 0,
-        data = 0,
-      )
-
-      /** Complete Results req */
-      sbMsgSuccess(c)
-
-      // TODO: finish
-
+      c.io.trainingOperationIO.outputValid.expect(true.B)
+      c.io.trainingOperationIO.errorCounts.expect(errorCount)
     }
+
   }
 
   private def expectSBReq(
@@ -137,6 +306,7 @@ class MBTrainerTest extends AnyFlatSpec with ChiselScalatestTester {
         )).U,
         _.reqType -> reqType,
         _.timeoutCycles -> timeoutCyclesDefault.U,
+        _.repeat -> false.B,
       ),
     )
     c.io.patternGeneratorIO.transmitReq.expectInvalid()
@@ -150,13 +320,6 @@ class MBTrainerTest extends AnyFlatSpec with ChiselScalatestTester {
         _.status -> MessageRequestStatusType.SUCCESS,
       ),
     )
-  }
-
-  it should "correctly exchange SB out of reset message sideband trigger" in {
-    test(new MBTrainer(linkTrainingParams, afeParams, maxPatternCount)) { c =>
-      initPorts(c)
-
-    }
   }
 
   private def initPorts(c: MBTrainer): Unit = {

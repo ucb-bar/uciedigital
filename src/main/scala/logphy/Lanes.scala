@@ -55,7 +55,6 @@ class Lanes(
     afeParams: AfeParams,
     queueParams: AsyncQueueParams,
 ) extends Module {
-
   val io = IO(new Bundle() {
     val scramble = Input(Bool())
     val mainbandLaneIO = new MainbandLaneIO(afeParams)
