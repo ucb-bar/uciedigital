@@ -54,14 +54,6 @@ trait CanHaveTLUCIAdapter { this: BaseSubsystem =>
       sbus.coupleFrom(s"ucie_tl_cl_port") { _ := TLBuffer() := TLWidthWidget(sbus.beatBytes) := TLBuffer() := uciTL.clientNode }
       sbus.coupleTo(s"ucie_tl_ctrl_port") { uciTL.regNode.node := TLWidthWidget(sbus.beatBytes) := TLFragmenter(sbus.beatBytes, sbus.blockBytes) := TLBuffer() := _ }
       Some(uciTL)
-      }
-      sbus.coupleTo(s"ucie_tl_ctrl_port") {
-        uciTL.regNode.node := TLWidthWidget(sbus.beatBytes) := TLFragmenter(
-          sbus.beatBytes,
-          sbus.blockBytes,
-        ) := _
-      }
-      Some(uciTL)
     }
     case None => None
   }
