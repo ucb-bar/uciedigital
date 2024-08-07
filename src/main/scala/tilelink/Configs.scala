@@ -48,15 +48,12 @@ trait CanHaveTLUCIAdapter { this: BaseSubsystem =>
         ),
       )
       uciTL.clockNode := sbus.fixedClockNode
-      obus.coupleTo(s"ucie_tl_man_port") {
-        uciTL.managerNode := TLWidthWidget(
-          obus.beatBytes,
-        ) := TLBuffer() := TLSourceShrinker(
-          params.tlParams.sourceIDWidth,
-        ) := TLFragmenter(obus.beatBytes, p(CacheBlockBytes)) := _
-      } // manager node because SBUS is making request?
-      sbus.coupleFrom(s"ucie_tl_cl_port") {
-        _ := TLWidthWidget(sbus.beatBytes) := TLBuffer() := uciTL.clientNode
+      obus.coupleTo(s"ucie_tl_man_port") { 
+          uciTL.managerNode := TLWidthWidget(obus.beatBytes) := TLBuffer() := TLSourceShrinker(params.tlParams.sourceIDWidth) := TLFragmenter(obus.beatBytes, p(CacheBlockBytes)) := TLBuffer() := _
+      } //manager node because SBUS is making request?
+      sbus.coupleFrom(s"ucie_tl_cl_port") { _ := TLBuffer() := TLWidthWidget(sbus.beatBytes) := TLBuffer() := uciTL.clientNode }
+      sbus.coupleTo(s"ucie_tl_ctrl_port") { uciTL.regNode.node := TLWidthWidget(sbus.beatBytes) := TLFragmenter(sbus.beatBytes, sbus.blockBytes) := TLBuffer() := _ }
+      Some(uciTL)
       }
       sbus.coupleTo(s"ucie_tl_ctrl_port") {
         uciTL.regNode.node := TLWidthWidget(sbus.beatBytes) := TLFragmenter(
