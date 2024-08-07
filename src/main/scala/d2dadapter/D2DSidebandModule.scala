@@ -65,39 +65,39 @@ class D2DSidebandModule(val fdiParams: FdiParams, val sbParams: SidebandParams) 
     sideband_switch.io.inner.layer_to_node_above.bits := 0.U(sbParams.sbNodeMsgWidth.W)
     sideband_switch.io.inner.layer_to_node_above.valid := false.B
 
-    sideband_switch.io.inner.node_to_layer_below.ready := false.B
+    sideband_switch.io.inner.node_to_layer_below.ready := true.B
     sideband_switch.io.inner.node_to_layer_above.ready := true.B
 
-    when(sideband_switch.io.inner.node_to_layer_above.valid && sideband_switch.io.inner.node_to_layer_above.ready){
-        when(sideband_switch.io.inner.node_to_layer_above.bits === SBM.LINK_MGMT_ADAPTER0_REQ_ACTIVE){
+    when(sideband_switch.io.inner.node_to_layer_below.valid && sideband_switch.io.inner.node_to_layer_below.ready){
+        when(sideband_switch.io.inner.node_to_layer_below.bits === SBM.LINK_MGMT_ADAPTER0_REQ_ACTIVE){
             io.sideband_rcv := SideBandMessage.REQ_ACTIVE
-        }.elsewhen(sideband_switch.io.inner.node_to_layer_above.bits === SBM.LINK_MGMT_ADAPTER0_REQ_L1){
+        }.elsewhen(sideband_switch.io.inner.node_to_layer_below.bits === SBM.LINK_MGMT_ADAPTER0_REQ_L1){
             io.sideband_rcv := SideBandMessage.REQ_L1
-        }.elsewhen(sideband_switch.io.inner.node_to_layer_above.bits === SBM.LINK_MGMT_ADAPTER0_REQ_L2){
+        }.elsewhen(sideband_switch.io.inner.node_to_layer_below.bits === SBM.LINK_MGMT_ADAPTER0_REQ_L2){
             io.sideband_rcv := SideBandMessage.REQ_L2
-        }.elsewhen(sideband_switch.io.inner.node_to_layer_above.bits === SBM.LINK_MGMT_ADAPTER0_REQ_LINK_RESET){
+        }.elsewhen(sideband_switch.io.inner.node_to_layer_below.bits === SBM.LINK_MGMT_ADAPTER0_REQ_LINK_RESET){
             io.sideband_rcv := SideBandMessage.REQ_LINKRESET
-        }.elsewhen(sideband_switch.io.inner.node_to_layer_above.bits === SBM.LINK_MGMT_ADAPTER0_REQ_DISABLE){
+        }.elsewhen(sideband_switch.io.inner.node_to_layer_below.bits === SBM.LINK_MGMT_ADAPTER0_REQ_DISABLE){
             io.sideband_rcv := SideBandMessage.REQ_DISABLED
-        }.elsewhen(sideband_switch.io.inner.node_to_layer_above.bits === SBM.LINK_MGMT_ADAPTER0_RSP_ACTIVE){
+        }.elsewhen(sideband_switch.io.inner.node_to_layer_below.bits === SBM.LINK_MGMT_ADAPTER0_RSP_ACTIVE){
             io.sideband_rcv := SideBandMessage.RSP_ACTIVE
-        }.elsewhen(sideband_switch.io.inner.node_to_layer_above.bits === SBM.LINK_MGMT_ADAPTER0_RSP_PM_NAK){
+        }.elsewhen(sideband_switch.io.inner.node_to_layer_below.bits === SBM.LINK_MGMT_ADAPTER0_RSP_PM_NAK){
             io.sideband_rcv := SideBandMessage.RSP_PMNAK
-        }.elsewhen(sideband_switch.io.inner.node_to_layer_above.bits === SBM.LINK_MGMT_ADAPTER0_RSP_L1){
+        }.elsewhen(sideband_switch.io.inner.node_to_layer_below.bits === SBM.LINK_MGMT_ADAPTER0_RSP_L1){
             io.sideband_rcv := SideBandMessage.RSP_L1
-        }.elsewhen(sideband_switch.io.inner.node_to_layer_above.bits === SBM.LINK_MGMT_ADAPTER0_RSP_L2){
+        }.elsewhen(sideband_switch.io.inner.node_to_layer_below.bits === SBM.LINK_MGMT_ADAPTER0_RSP_L2){
             io.sideband_rcv := SideBandMessage.RSP_L2
-        }.elsewhen(sideband_switch.io.inner.node_to_layer_above.bits === SBM.LINK_MGMT_ADAPTER0_RSP_LINK_RESET){
+        }.elsewhen(sideband_switch.io.inner.node_to_layer_below.bits === SBM.LINK_MGMT_ADAPTER0_RSP_LINK_RESET){
             io.sideband_rcv := SideBandMessage.RSP_LINKRESET
-        }.elsewhen(sideband_switch.io.inner.node_to_layer_above.bits === SBM.LINK_MGMT_ADAPTER0_RSP_DISABLE){
+        }.elsewhen(sideband_switch.io.inner.node_to_layer_below.bits === SBM.LINK_MGMT_ADAPTER0_RSP_DISABLE){
             io.sideband_rcv := SideBandMessage.RSP_DISABLED
-        }.elsewhen(sideband_switch.io.inner.node_to_layer_above.bits === SBM.PARITY_FEATURE_REQ){
+        }.elsewhen(sideband_switch.io.inner.node_to_layer_below.bits === SBM.PARITY_FEATURE_REQ){
             io.sideband_rcv := SideBandMessage.PARITY_FEATURE_REQ
-        }.elsewhen(sideband_switch.io.inner.node_to_layer_above.bits === SBM.PARITY_FEATURE_ACK){
+        }.elsewhen(sideband_switch.io.inner.node_to_layer_below.bits === SBM.PARITY_FEATURE_ACK){
             io.sideband_rcv := SideBandMessage.PARITY_FEATURE_ACK
-        }.elsewhen(sideband_switch.io.inner.node_to_layer_above.bits === SBM.PARITY_FEATURE_NAK){
+        }.elsewhen(sideband_switch.io.inner.node_to_layer_below.bits === SBM.PARITY_FEATURE_NAK){
             io.sideband_rcv := SideBandMessage.PARITY_FEATURE_NAK
-        }.elsewhen(sideband_switch.io.inner.node_to_layer_above.bits === SBM.ADV_CAP){
+        }.elsewhen(sideband_switch.io.inner.node_to_layer_below.bits === SBM.ADV_CAP){
             io.sideband_rcv := SideBandMessage.ADV_CAP
         }.otherwise{
             io.sideband_rcv := SideBandMessage.NOP

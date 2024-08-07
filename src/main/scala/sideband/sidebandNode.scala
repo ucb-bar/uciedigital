@@ -2,8 +2,9 @@ package edu.berkeley.cs.ucie.digital
 package sideband
 
 import chisel3._
+import chisel3.experimental._
 import chisel3.util._
-
+import freechips.rocketchip.util.{AsyncQueue, AsyncResetReg, ClockGate}
 import interfaces._
 
 //TODO: 1) L317-318 needs to be revisited
@@ -262,12 +263,17 @@ class SidebandLinkSerializer(
   val sending = RegInit(false.B)
   val done = RegInit(false.B)
   val waited = RegInit(true.B)
+  val sendNext = RegInit(false.B)
   val (sendCount, sendDone) = Counter(sending, dataBeats)
 
   val isComplete = RegInit(false.B)
 
   io.in.ready := (waited) // wait for 32 cycles between SB messages
-  io.out.clock := Mux(sending, clock.asUInt, false.B)
+
+  val sendNegEdge = withClock((!clock.asBool).asClock)(RegInit(false.B))
+  sendNegEdge := sendNext || sending && (sendCount =/= (dataBeats - 1).U)
+
+  io.out.clock := Mux(sendNegEdge, clock.asUInt, false.B)
   io.out.bits := data(sb_w - 1, 0)
 
   counter_en := false.B
@@ -276,9 +282,15 @@ class SidebandLinkSerializer(
 
   when(io.in.fire) {
     data := io.in.bits.asUInt
+    sendNext := true.B
+  }
+
+  when(sendNext) {
+    sendNext := false.B
     sending := true.B
-    waited := false.B
     counter_next := 0.U
+    done := false.B
+    waited := false.B
   }
 
   when(sending) { data := data >> sb_w.U }
@@ -312,22 +324,44 @@ class SidebandLinkDeserializer(
 
   val dataBits = msg_w
   val dataBeats = (dataBits - 1) / sb_w + 1
-  val data = Reg(Vec(dataBeats, UInt(sb_w.W)))
+  val sbDeserBlackBox = Module(new SBDeserializerBlackBox(msg_w))
 
-  val receiving = RegInit(true.B)
+  val valid_sync_1 = RegNext(sbDeserBlackBox.io.out_data_valid)
+  val valid_sync = RegNext(valid_sync_1)
+  val data_sync_1 = RegNext(sbDeserBlackBox.io.out_data)
+  val data_sync = RegNext(data_sync_1)
 
-  withClock(remote_clock) {
-
-    val (recvCount, recvDone) = Counter(true.B, dataBeats)
-
-    val recvCount_delay = RegInit(0.U(log2Ceil(dataBeats).W))
-    recvCount_delay := recvCount
-
-    data(recvCount_delay) := io.in.bits
-    when(recvDone) { receiving := false.B }
-    when(io.out.fire) { receiving := true.B }
-    io.out.valid := !receiving
-
-    io.out.bits := data.asUInt
+  val flag = RegInit(true.B)
+  when(valid_sync) {
+    flag := false.B
+  }.otherwise {
+    flag := true.B
   }
+
+  io.out.valid := valid_sync && flag
+  io.out.bits := data_sync
+
+  sbDeserBlackBox.io.clk := remote_clock
+  sbDeserBlackBox.io.rst := reset.asAsyncReset
+  sbDeserBlackBox.io.in_data := io.in.bits
+
+}
+
+class SBDeserializerBlackBox(val width: Int)
+    extends BlackBox(
+      Map(
+        "WIDTH" -> IntParam(width),
+        "WIDTH_W" -> IntParam(log2Ceil(width) + 1),
+      ),
+    )
+    with HasBlackBoxResource {
+  val io = IO(new Bundle {
+    val clk = Input(Clock())
+    val rst = Input(Reset())
+    val in_data = Input(UInt(1.W))
+    val out_data = Output(UInt(width.W))
+    val out_data_valid = Output(Bool())
+  })
+
+  addResource("/vsrc/SBDeserializer.v")
 }

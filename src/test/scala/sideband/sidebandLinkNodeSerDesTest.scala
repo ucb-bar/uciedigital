@@ -90,6 +90,7 @@ class LinkSerDesTest extends AnyFlatSpec with ChiselScalatestTester {
 
         // Check serialized data
         c.io.in.valid.poke(false.B)
+        c.clock.step()
         for (i <- 0 until (c.msg_w / c.sb_w)) {
           val serialized_data = data((i + 1) * c.sb_w - 1, i * c.sb_w)
           c.io.in.ready.expect(false.B)
@@ -99,6 +100,7 @@ class LinkSerDesTest extends AnyFlatSpec with ChiselScalatestTester {
 
         // make sure it does not take anything for 32 cycles
         for (i <- 0 until 32) {
+          println(i)
           c.io.in.ready.expect(false.B)
           c.clock.step()
         }

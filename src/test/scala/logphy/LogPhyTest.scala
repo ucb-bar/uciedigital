@@ -19,18 +19,17 @@ class LogPhyTest extends AnyFlatSpec with ChiselScalatestTester {
     * actual top-level test because Chiseltest does not support multiple clock
     * domains.
     */
-  // behavior of "logical phy"
-  // it should "" in {
-  //   test(
-  //     new LogicalPhy(
-  //       0,
-  //       linkTrainingParams = linkTrainingParams,
-  //       afeParams = afeParams,
-  //       rdiParams = rdiParams,
-  //       fdiParams = fdiParams,
-  //       sbParams = sbParams,
-  //       laneAsyncQueueParams = laneAsyncQueueParams,
-  //     ),
-  //   ) { c => }
-  // }
+  behavior of "logical phy"
+  ignore should "" in {
+    test(
+      new LogicalPhy(
+        linkTrainingParams = linkTrainingParams,
+        afeParams = afeParams,
+        rdiParams = rdiParams,
+        fdiParams = fdiParams,
+        sbParams = sbParams,
+        laneAsyncQueueParams = laneAsyncQueueParams,
+      ),
+    ) { c => }
+  }
 }

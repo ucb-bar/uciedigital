@@ -195,6 +195,14 @@ class LinkInitSubmodule() extends Module {
             linkinit_state_reg := LinkInitState.INIT_DONE
         }
       }
+    }.elsewhen(io.link_state === PhyState.active){
+      io.active_entry := true.B
+      io.linkinit_fdi_pl_state_sts := PhyState.active
+      io.linkinit_fdi_pl_rxactive_req := true.B
+      io.linkinit_fdi_pl_inband_pres := true.B
+      io.linkinit_rdi_lp_state_req := PhyStateReq.active
+      io.linkinit_sb_snd := SideBandMessage.NOP
+      linkinit_state_reg := LinkInitState.INIT_DONE
     }.otherwise{
       linkinit_state_reg := LinkInitState.INIT_START
       io.active_entry := false.B

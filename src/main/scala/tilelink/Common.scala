@@ -29,7 +29,7 @@ case class TileLinkParams(
   val ADDRESS = address
   val ADDR_RANGE = addressRange
   val BEAT_BYTES = 32 // 256 bits/8
-  val CONFIG_BEAT_BYTES = 8
+  val CONFIG_BEAT_BYTES = 16
   val opcodeWidth = 3
   val paramWidth = 3
   val sourceIDWidth = 8
