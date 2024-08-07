@@ -141,7 +141,6 @@ class MBInitFSM(
           }
         }
         is(ParamSubState.WAIT_REQ) {
-          printf("in MB init wait req\n")
           io.sbTrainIO.msgReqStatus.ready := true.B
           when(io.sbTrainIO.msgReqStatus.fire) {
             reqData := io.sbTrainIO.msgReqStatus.bits.data
