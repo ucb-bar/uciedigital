@@ -7,7 +7,8 @@ import sideband.SidebandParams
 import interfaces._
 
 object LinkTrainingState extends ChiselEnum {
-  val reset, sbInit, mbInit, linkInit, active, linkError, retrain = Value
+  val reset, sbInit, mbInit, mbTrain, linkInit, active, linkError, retrain =
+    Value
 }
 
 object MsgSource extends ChiselEnum {
@@ -28,9 +29,14 @@ class SBReqMsg extends Bundle {
   val msg = UInt(128.W)
 }
 
+object MessageRequestType extends ChiselEnum {
+  val EXCHANGE, RECEIVE, SEND = Value
+}
+
 class MessageRequest extends Bundle {
   val msg = UInt(128.W)
   val timeoutCycles = UInt(64.W)
+  val reqType = MessageRequestType()
   val repeat = Bool()
 }
 
@@ -47,7 +53,10 @@ object ClockModeParam extends ChiselEnum {
 }
 
 object TransmitPattern extends ChiselEnum {
-  val CLOCK_64_LOW_32 = Value(0.U)
+  val LFSR = Value(0.U)
+  val PER_LANE_ID = Value(1.U)
+  val VALTRAIN = Value(2.U)
+  val CLOCK = Value(3.U)
 }
 
 class SBIO(params: AfeParams) extends Bundle {
@@ -68,7 +77,7 @@ class SBIO(params: AfeParams) extends Bundle {
   val rxData = Flipped(Decoupled(Bits(params.sbSerializerRatio.W)))
 }
 
-class MainbandIO(
+class MainbandLaneIO(
     afeParams: AfeParams,
 ) extends Bundle {
 
@@ -95,7 +104,7 @@ class MainbandIO(
   )
 }
 
-class MainbandLaneIO(
+class MainbandIO(
     afeParams: AfeParams,
 ) extends Bundle {
 
@@ -106,7 +115,7 @@ class MainbandLaneIO(
   )
 
   val rxData =
-    Valid(Bits((afeParams.mbLanes * afeParams.mbSerializerRatio).W))
+    Decoupled(Bits((afeParams.mbLanes * afeParams.mbSerializerRatio).W))
 }
 
 class SidebandLaneIO(

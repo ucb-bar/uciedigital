@@ -21,7 +21,6 @@ class RdiBringupIO extends Bundle {
   val plStallReq = Output(Bool())
   val lpStallAck = Input(Bool())
 
-  /** TODO: need to support lp link error */
   val lpLinkError = Input(Bool())
 }
 

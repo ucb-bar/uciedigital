@@ -6,151 +6,112 @@ import chisel3.util._
 import sideband.SidebandParams
 import interfaces._
 
-class PatternGeneratorIO extends Bundle {
+class PatternGeneratorIO(afeParams: AfeParams, maxPatternCount: Int)
+    extends Bundle {
+  val maxPatternCountWidth = log2Ceil(maxPatternCount + 1)
   val transmitReq = Flipped(Decoupled(new Bundle {
     val pattern = TransmitPattern()
     val timeoutCycles = UInt(32.W)
-    val sideband = Bool()
-  })) // data to transmit & receive over SB
-  val transmitPatternStatus = Decoupled(MessageRequestStatusType())
+    val patternCountMax = UInt(maxPatternCountWidth.W)
+    val patternDetectedCountMax = UInt(maxPatternCountWidth.W)
+  }))
+  val resp = Decoupled(new Bundle {
+    val status = MessageRequestStatusType()
+    val errorCount = Output(
+      Vec(afeParams.mbLanes, UInt(maxPatternCountWidth.W)),
+    )
+  })
+
 }
 
 class PatternGenerator(
     afeParams: AfeParams,
     sbParams: SidebandParams,
+    maxPatternCount: Int,
 ) extends Module {
+  val maxPatternCountWidth = log2Ceil(maxPatternCount + 1)
   val io = IO(new Bundle {
-    val patternGeneratorIO = new PatternGeneratorIO()
+    val patternGeneratorIO = new PatternGeneratorIO(afeParams, maxPatternCount)
 
-    /** for now, assume want to transmit on sideband IO only */
-    // val mainbandLaneIO = Flipped(new MainbandLaneIO(afeParams))
+    val mainbandIO = Flipped(new MainbandIO(afeParams))
     val sidebandLaneIO = Flipped(new SidebandLaneIO(sbParams))
   })
 
-  /** TODO: remove */
-  // io.mainbandLaneIO.txData.noenq()
+  val patternWriter = Module(
+    new PatternWriter(sbParams, afeParams, maxPatternCount),
+  )
+  val patternReader = Module(
+    new PatternReader(sbParams, afeParams, maxPatternCount),
+  )
 
-  private val writeInProgress = RegInit(false.B)
-  private val readInProgress = RegInit(false.B)
-  private val inProgress = WireInit(writeInProgress || readInProgress)
-  private val pattern = RegInit(TransmitPattern.CLOCK_64_LOW_32)
-  private val sideband = RegInit(true.B)
+  patternWriter.io.sbTxData <> io.sidebandLaneIO.txData
+  patternWriter.io.mbTxData.map(
+    LanesToOne(_, afeParams.mbLanes, afeParams.mbSerializerRatio),
+  ) <> io.mainbandIO.txData
+  patternReader.io.sbRxData <> io.sidebandLaneIO.rxData
+  patternReader.io.mbRxData <> io.mainbandIO.rxData.map(
+    OneToLanes(_, afeParams.mbLanes, afeParams.mbSerializerRatio),
+  )
+
+  private val inProgress = WireInit(
+    patternWriter.io.resp.inProgress || patternReader.io.resp.inProgress,
+  )
+
+  private val inputsValid = RegInit(false.B)
+  private val pattern = RegInit(TransmitPattern.CLOCK)
   private val timeoutCycles = RegInit(0.U(32.W))
   private val status = RegInit(MessageRequestStatusType.SUCCESS)
+  private val errorCount = RegInit(
+    VecInit(Seq.fill(afeParams.mbLanes)(0.U(maxPatternCount.W))),
+  )
   private val statusValid = RegInit(false.B)
+  private val patternCountMax = RegInit(0.U(maxPatternCountWidth.W))
+  private val patternDetectedCountMax = RegInit(0.U(maxPatternCountWidth.W))
+
+  patternWriter.io.request.bits.pattern := pattern
+  patternWriter.io.request.bits.patternCountMax := patternCountMax
+  patternReader.io.request.bits.pattern := pattern
+  patternReader.io.request.bits.patternCountMax := patternDetectedCountMax
+  patternWriter.io.request.valid := inputsValid
+  patternReader.io.request.valid := inputsValid
+
   io.patternGeneratorIO.transmitReq.ready := (inProgress === false.B)
-  io.patternGeneratorIO.transmitPatternStatus.valid := statusValid
-  io.patternGeneratorIO.transmitPatternStatus.bits := status
+  io.patternGeneratorIO.resp.valid := statusValid
+  io.patternGeneratorIO.resp.bits.status := status
+  io.patternGeneratorIO.resp.bits.errorCount := errorCount
 
   when(io.patternGeneratorIO.transmitReq.fire) {
-    writeInProgress := true.B
-    readInProgress := true.B
     pattern := io.patternGeneratorIO.transmitReq.bits.pattern
-    sideband := io.patternGeneratorIO.transmitReq.bits.sideband
     timeoutCycles := io.patternGeneratorIO.transmitReq.bits.timeoutCycles
+    patternCountMax := io.patternGeneratorIO.transmitReq.bits.patternCountMax
+    patternDetectedCountMax := io.patternGeneratorIO.transmitReq.bits.patternDetectedCountMax
+    inputsValid := true.B
     statusValid := false.B
   }
 
-  /** clock gating is not implemented, so for now, just send 128 bits of regular
-    * clock data
-    */
-  val clockPatternShiftReg = RegInit(
-    "h_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa".U,
-  )
-  val patternToTransmit = WireInit(0.U(sbParams.sbNodeMsgWidth.W))
-  val patternDetectedCount = RegInit(0.U(log2Ceil(128 * 2 + 1).W))
-  val patternWrittenCount = RegInit(0.U(log2Ceil(2 + 1).W))
-
-  val patternWrittenCountMax = Seq(
-    TransmitPattern.CLOCK_64_LOW_32 -> 2.U,
-  )
-
-  val patternDetectedCountMax = Seq(
-    TransmitPattern.CLOCK_64_LOW_32 -> 128.U,
-  )
-
-  io.sidebandLaneIO.txData.valid := writeInProgress
-  io.sidebandLaneIO.txData.bits := patternToTransmit
-  io.sidebandLaneIO.rxData.ready := readInProgress
-
-  when(io.patternGeneratorIO.transmitPatternStatus.fire) {
+  when(io.patternGeneratorIO.resp.fire) {
     statusValid := false.B
   }
 
+  /** handle timeouts and completion */
   when(inProgress) {
     timeoutCycles := timeoutCycles - 1.U
-    when(timeoutCycles === 0.U) {
-      status := MessageRequestStatusType.ERR
+    val timeout = timeoutCycles === 0.U
+    val complete =
+      patternWriter.io.resp.complete && patternReader.io.resp.complete
+
+    when(timeout || complete) {
+      status := Mux(
+        timeout,
+        MessageRequestStatusType.ERR,
+        MessageRequestStatusType.SUCCESS,
+      )
       statusValid := true.B
-      writeInProgress := false.B
-      readInProgress := false.B
-      patternWrittenCount := 0.U
-      patternDetectedCount := 0.U
-    }.elsewhen(
-      (patternWrittenCount >= MuxLookup(pattern, 0.U)(
-        patternWrittenCountMax,
-      )) && (patternDetectedCount >= MuxLookup(pattern, 0.U)(
-        patternDetectedCountMax,
-      )),
-    ) {
-      statusValid := true.B
-      status := MessageRequestStatusType.SUCCESS
-      writeInProgress := false.B
-      readInProgress := false.B
-      patternWrittenCount := 0.U
-      patternDetectedCount := 0.U
+      patternWriter.reset := true.B
+      patternReader.reset := true.B
+      inputsValid := false.B
+      errorCount := patternReader.io.resp.errorCount
     }
-  }
-
-  when(writeInProgress) {
-    switch(pattern) {
-
-      /** Patterns may be different lengths, etc. so may be best to handle
-        * separately, for now
-        */
-      is(TransmitPattern.CLOCK_64_LOW_32) {
-        patternToTransmit := clockPatternShiftReg(
-          sbParams.sbNodeMsgWidth - 1,
-          0,
-        )
-        when(io.sidebandLaneIO.txData.fire) {
-          /* clockPatternShiftReg := (clockPatternShiftReg >>
-           * sbParams.sbNodeMsgWidth.U).asUInt & */
-          //   (clockPatternShiftReg <<
-          //     (clockPatternShiftReg.getWidth.U - sbParams.sbNodeMsgWidth.U))
-          printf("pattern written count: %d\n", patternWrittenCount)
-          patternWrittenCount := patternWrittenCount + 1.U
-        }
-      }
-    }
-
-  }
-
-  when(readInProgress) {
-    switch(pattern) {
-
-      is(TransmitPattern.CLOCK_64_LOW_32) {
-
-        assert(
-          sbParams.sbNodeMsgWidth == 128,
-          "comparing with 128 bit clock pattern",
-        )
-        val patternToDetect = "h_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa".U(
-          sbParams.sbNodeMsgWidth.W,
-        )
-        when(io.sidebandLaneIO.rxData.fire) {
-
-          /** detect clock UI pattern -- as long as the pattern is correctly
-            * aligned, this is simple
-            */
-          when(io.sidebandLaneIO.rxData.bits === patternToDetect) {
-            patternDetectedCount := patternDetectedCount + sbParams.sbNodeMsgWidth.U
-          }
-        }
-
-      }
-    }
-
   }
 
 }

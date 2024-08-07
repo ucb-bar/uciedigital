@@ -51,7 +51,7 @@ class DataWidthCoupler(params: DataWidthCouplerParams) extends Module {
       is(State.CHUNK_OR_COLLECT) {
         io.out.bits := inData
           .asTypeOf(Vec(ratio, Bits(params.outWidth.W)))(
-            (ratio - 1).U - chunkCounter,
+            chunkCounter,
           )
         io.out.valid := true.B
         when(io.out.fire) {
@@ -86,7 +86,7 @@ class DataWidthCoupler(params: DataWidthCouplerParams) extends Module {
       is(State.IDLE) {
         io.in.ready := true.B
         when(io.in.fire) {
-          inData((ratio - 1).U - inSliceCounter) := io.in.bits
+          inData(inSliceCounter) := io.in.bits
           inSliceCounter := inSliceCounter + 1.U
         }
         when(inSliceCounter === (ratio - 1).U) {

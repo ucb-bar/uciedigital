@@ -24,8 +24,13 @@ class LinkTrainingFSMTest extends AnyFlatSpec with ChiselScalatestTester {
     ) { c =>
       initPorts(c)
       testTransitionOutOfReset(c)
+      println("Exited Reset")
       initSB(c)
+      println("Successfully initialized sideband")
       initMB(c)
+      println("Successfully initialized mainband")
+      // trainMB(c)
+      println("Successfully trained mainband")
 
       c.io.currentState.expect(LinkTrainingState.linkInit)
 
@@ -52,13 +57,16 @@ class LinkTrainingFSMTest extends AnyFlatSpec with ChiselScalatestTester {
 
   private def initSB(c: LinkTrainingFSM): Unit = {
     c.io.currentState.expect(LinkTrainingState.sbInit)
-    c.io.sidebandFSMIO.patternTxData
-      .expectDequeue("h_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa".U)
-    c.io.sidebandFSMIO.patternTxData
-      .expectDequeue("h_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa".U)
-    c.io.sidebandFSMIO.rxData
-      .enqueueNow("h_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa".U)
+    val txData = Seq.fill(3)("h_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa".U)
+    val rxData = Seq.fill(1)("h_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa".U)
+    fork {
+      c.io.sidebandFSMIO.rxData.enqueueSeq(rxData)
+    }.fork {
+      c.io.sidebandFSMIO.patternTxData.expectDequeueSeq(txData)
+    }.join()
+
     c.clock.step(5)
+    println("Exchanged clock patterns")
     c.io.sidebandFSMIO.rxData.enqueueNow(
       SBMessage_factory(SBM.SBINIT_OUT_OF_RESET, "PHY", true, "PHY", 0, 0).U,
     )
@@ -72,6 +80,7 @@ class LinkTrainingFSMTest extends AnyFlatSpec with ChiselScalatestTester {
     c.io.sidebandFSMIO.rxData.enqueue(
       SBMessage_factory(SBM.SBINIT_OUT_OF_RESET, "PHY", true, "PHY", 0, 0).U,
     )
+    println("Exchanged out of reset sb packets")
     c.clock.step(2)
     c.io.sidebandFSMIO.rxData
       .enqueueNow(
@@ -99,6 +108,10 @@ class LinkTrainingFSMTest extends AnyFlatSpec with ChiselScalatestTester {
       )
     c.clock.step(3)
   }
+
+  // private def trainMB(c: LinkTrainingFSM): Unit = {
+  //   c.io.currentState.expect(LinkTrainingState.mbTrain)
+  // }
 
   private def testTransitionOutOfReset(c: LinkTrainingFSM): Unit = {
     c.io.currentState.expect(LinkTrainingState.reset)
