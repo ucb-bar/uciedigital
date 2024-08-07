@@ -15,15 +15,17 @@ import e2e._
 import protocol._
 import interfaces._
 import sideband._
-import logphy.{LinkTrainingParams}
+import logphy.{LinkTrainingParams, MainbandLaneIO}
 
 
-class UcieDigitalTopIO(mbLanes: Int = 16) extends Bundle {
+class UcieDigitalTopIO(mbLanes: Int = 16, STANDALONE: Boolean = true) extends Bundle {
      // FDI interface for testing purposes only
      //val fdi = new Fdi(fdiParams)
      // IOs for connecting to the AFE
-     val mbAfe_tx = Output(new MainbandIo(mbLanes))
-     val mbAfe_rx = Input(new MainbandIo(mbLanes))
+     val afeParams = AfeParams()
+     val mbAfe_tx = if (STANDALONE) Some(Output(new MainbandIo(mbLanes))) else None
+     val mbAfe_rx = if (STANDALONE) Some(Input(new MainbandIo(mbLanes))) else None
+     val phyAfe = if (STANDALONE) None else Some(Flipped(new MainbandLaneIO(afeParams)))
      val rxSbAfe = Input(new SidebandIo())
      val txSbAfe = Output(new SidebandIo())
      //val mbAfe = new MainbandAfeIo(afeParams)
@@ -78,7 +80,7 @@ class UCITLFront(val tlParams: TileLinkParams, val protoParams: ProtocolLayerPar
   override lazy val module = new UCITLFrontImp
 
 class UCITLFrontImp extends Impl {
-  val io = IO(new UcieDigitalTopIO)
+  val io = IO(new UcieDigitalTopIO(afeParams.mbLanes, afeParams.STANDALONE))
   //new Bundle {
      // FDI interface for testing purposes only
      //val fdi = new Fdi(fdiParams)
@@ -103,8 +105,12 @@ class UCITLFrontImp extends Impl {
   //io.fdi <> ucietop.io.fdi
   ucietop.io.fault := fault
 
-  io.mbAfe_tx <> ucietop.io.mbAfe_tx 
-  io.mbAfe_rx <> ucietop.io.mbAfe_rx
+  if (afeParams.STANDALONE) {
+    io.mbAfe_tx.get <> ucietop.io.mbAfe_tx.get
+    io.mbAfe_rx.get <> ucietop.io.mbAfe_rx.get 
+  } else {
+    io.phyAfe.get <> ucietop.io.phyAfe.get
+  }
   io.txSbAfe <> ucietop.io.sbTxIO
   io.rxSbAfe <> ucietop.io.sbRxIO
   // dontTouch(topIO.out(0)._1)

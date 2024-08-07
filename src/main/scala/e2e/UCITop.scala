@@ -42,9 +42,10 @@ class UCITop(
     val TLready_to_rcv = Input(Bool())
     val fault = Input(Bool())
     val soft_reset = Input(Bool())
-    // IOs for connecting to the AFE
-    val mbAfe_tx = Output(new MainbandIo(afeParams.mbLanes))
-    val mbAfe_rx = Input(new MainbandIo(afeParams.mbLanes))
+    // IOs for connecting to the AFE in the standalone mode
+    val mbAfe_tx = if (afeParams.STANDALONE) Some(Output(new MainbandIo(afeParams.mbLanes))) else None
+    val mbAfe_rx = if (afeParams.STANDALONE) Some(Input(new MainbandIo(afeParams.mbLanes))) else None
+    val phyAfe = if (afeParams.STANDALONE) None else Some(Flipped(new MainbandLaneIO(afeParams)))
     val sbTxIO = Output(new SidebandIo)
     val sbRxIO = Input(new SidebandIo)
   })
@@ -83,12 +84,26 @@ class UCITop(
 
   /** Mainband AFE connections to toplevel IOs
     */
-  io.mbAfe_tx <> dafe.io.mbTxData
-  io.mbAfe_rx <> dafe.io.mbRxData
+  if (afeParams.STANDALONE) { io.mbAfe_tx.get <> dafe.io.mbTxData }
+  if (afeParams.STANDALONE) { 
+    io.mbAfe_rx.get <> dafe.io.mbRxData 
+  } else {
+    dafe.io.mbRxData := 0.U.asTypeOf(dafe.io.mbRxData)
+  }
 
   /** Logphy connections to Digital AFE
     */
-  logPhy.io.mbAfe <> dafe.io.mbAfeIo
+  if (afeParams.STANDALONE) { 
+    logPhy.io.mbAfe.get <> dafe.io.mbAfeIo 
+  } else {
+    logPhy.io.phyAfe.get <> io.phyAfe.get
+    // defaults to zero
+    dafe.io.mbAfeIo.txData.valid := 0.U
+    dafe.io.mbAfeIo.txData.bits := 0.U.asTypeOf(dafe.io.mbAfeIo.txData.bits)
+    dafe.io.mbAfeIo.rxData.ready := 0.U
+    dafe.io.mbAfeIo.txFreqSel := 0.U.asTypeOf(dafe.io.mbAfeIo.txFreqSel)
+    dafe.io.mbAfeIo.rxEn := 0.U
+  }
 
   /* Connect the protocol IOs to the top for connections to the tilelink
    * interface */

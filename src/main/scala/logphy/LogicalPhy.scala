@@ -17,7 +17,11 @@ class LogicalPhy(
 
   val io = IO(new Bundle {
     val rdi = Flipped(new Rdi(rdiParams))
-    val mbAfe = new MainbandAfeIo(afeParams)
+    val mbAfe =
+      if (afeParams.STANDALONE) Some(new MainbandAfeIo(afeParams)) else None
+    val phyAfe =
+      if (afeParams.STANDALONE) None
+      else Some(Flipped(new MainbandLaneIO(afeParams)))
     val sbAfe = new SidebandAfeIo(afeParams)
   })
 
@@ -27,9 +31,16 @@ class LogicalPhy(
     )
   }
 
-  trainingModule.io.mainbandFSMIO.pllLock <> io.mbAfe.pllLock
+  /** TODO: replace this with MMIO module instantiations */
+  trainingModule.io.trainingOperationIO := DontCare
+
+  if (afeParams.STANDALONE) {
+    trainingModule.io.mainbandFSMIO.pllLock <> io.mbAfe.get.pllLock
+  } else { trainingModule.io.mainbandFSMIO.pllLock := 0.U }
   trainingModule.io.sidebandFSMIO.pllLock <> io.sbAfe.pllLock
-  trainingModule.io.mainbandFSMIO.rxEn <> io.mbAfe.rxEn
+  if (afeParams.STANDALONE) {
+    trainingModule.io.mainbandFSMIO.rxEn <> io.mbAfe.get.rxEn
+  }
   trainingModule.io.sidebandFSMIO.rxEn <> io.sbAfe.rxEn
   trainingModule.io.rdi.rdiBringupIO.lpStateReq <> io.rdi.lpStateReq
 
@@ -50,7 +61,9 @@ class LogicalPhy(
 
   io.rdi.plPhyInRecenter := io.rdi.plStateStatus === PhyState.retrain
   io.rdi.plSpeedMode <> trainingModule.io.mainbandFSMIO.txFreqSel
-  io.mbAfe.txFreqSel <> trainingModule.io.mainbandFSMIO.txFreqSel
+  if (afeParams.STANDALONE) {
+    io.mbAfe.get.txFreqSel <> trainingModule.io.mainbandFSMIO.txFreqSel
+  }
   io.rdi.plLinkWidth := PhyWidth.width16
   io.rdi.plClkReq <> trainingModule.io.rdi.rdiBringupIO.plClkReq
   io.rdi.plWakeAck <> trainingModule.io.rdi.rdiBringupIO.plWakeAck
@@ -68,11 +81,39 @@ class LogicalPhy(
 
   val lanes = Module(new Lanes(afeParams, laneAsyncQueueParams))
 
+  /** TODO: need to drive this from state machine */
+  lanes.io.scramble := true.B
+
   /** Connect internal FIFO to AFE */
-  lanes.io.mainbandIo.txData <> io.mbAfe.txData
-  lanes.io.mainbandIo.rxData <> io.mbAfe.rxData
-  lanes.io.mainbandIo.fifoParams <> io.mbAfe.fifoParams
-  rdiDataMapper.io.mainbandLaneIO <> lanes.io.mainbandLaneIO
+  if (afeParams.STANDALONE) {
+    lanes.io.mainbandLaneIO.txData <> io.mbAfe.get.txData
+    lanes.io.mainbandLaneIO.rxData <> io.mbAfe.get.rxData
+    lanes.io.mainbandLaneIO.fifoParams <> io.mbAfe.get.fifoParams
+    when(trainingModule.io.currentState === LinkTrainingState.active) {
+      rdiDataMapper.io.mainbandLaneIO <> lanes.io.mainbandIO
+      trainingModule.io.mainbandFSMIO.mainbandIO.rxData.noenq()
+      trainingModule.io.mainbandFSMIO.mainbandIO.txData.nodeq()
+    }.otherwise {
+      rdiDataMapper.io.mainbandLaneIO.rxData.noenq()
+      rdiDataMapper.io.mainbandLaneIO.txData.nodeq()
+      trainingModule.io.mainbandFSMIO.mainbandIO <> lanes.io.mainbandIO
+    }
+  } else {
+    rdiDataMapper.io.mainbandLaneIO <> io.phyAfe.get
+    // defaults to zero
+    /** TODO: not sure what is going on here */
+    lanes.io.mainbandLaneIO.fifoParams.clk := 0.U.asTypeOf(Clock())
+    lanes.io.mainbandLaneIO.fifoParams.reset := 0.U
+    lanes.io.mainbandLaneIO.txData.ready := 0.U
+    lanes.io.mainbandLaneIO.rxData.valid := 0.U
+    lanes.io.mainbandLaneIO.rxData.bits := 0.U.asTypeOf(
+      lanes.io.mainbandIO.rxData.bits,
+    )
+    lanes.io.mainbandLaneIO.txData.valid := 0.U
+    lanes.io.mainbandLaneIO.txData.bits := 0.U.asTypeOf(
+      lanes.io.mainbandIO.txData.bits,
+    )
+  }
 
   /** Connect RDI to Mainband IO */
   rdiDataMapper.io.rdi.lpData <> io.rdi.lpData
@@ -85,7 +126,6 @@ class LogicalPhy(
     "connecting sideband module directly to training module, sb serializer ratio must be 1!",
   )
 
-  /** TODO: Double check that this is the right direction */
   sidebandChannel.io.to_upper_layer.tx.bits <> io.rdi.plConfig.bits
   sidebandChannel.io.to_upper_layer.tx.valid <> io.rdi.plConfig.valid
   sidebandChannel.io.to_upper_layer.tx.credit <> io.rdi.plConfigCredit
@@ -100,9 +140,7 @@ class LogicalPhy(
   sidebandChannel.io.inner.inputMode := trainingModule.io.sidebandFSMIO.txMode
   sidebandChannel.io.inner.rxMode := trainingModule.io.sidebandFSMIO.rxMode
 
-  /** TODO: layer to node above not connected? Not sure when might receive SB
-    * packet from above layer
-    */
+  /** Currently no situation where would receive SB packet from above layer. */
   sidebandChannel.io.inner.switcherBundle.layer_to_node_above.noenq()
   sidebandChannel.io.inner.switcherBundle.node_to_layer_above.nodeq()
 

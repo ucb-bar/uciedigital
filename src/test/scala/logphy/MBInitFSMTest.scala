@@ -33,7 +33,7 @@ class MBInitFSMTest extends AnyFlatSpec with ChiselScalatestTester {
         if (req) SBM.MBINIT_PARAM_CONFIG_REQ
         else SBM.MBINIT_PARAM_CONFIG_RESP,
       src = "PHY",
-      remote = false,
+      remote = true,
       dst = "PHY",
       data = data,
       msgInfo = 0,
@@ -63,14 +63,14 @@ class MBInitFSMTest extends AnyFlatSpec with ChiselScalatestTester {
           if (req) SBM.MBINIT_PARAM_CONFIG_REQ
           else SBM.MBINIT_PARAM_CONFIG_RESP,
         src = "PHY",
-        remote = false,
+        remote = true,
         dst = "PHY",
         data = data,
         msgInfo = 0,
       ).U,
       _.timeoutCycles -> (0.008 * sbClockFreq).toInt.U,
-      // _.reqType -> (if (req) MessageRequestType.MSG_REQ
-      //               else MessageRequestType.MSG_RESP),
+      _.reqType -> MessageRequestType.EXCHANGE,
+      _.repeat -> false.B,
     )
     msgReq
   }
@@ -96,7 +96,7 @@ class MBInitFSMTest extends AnyFlatSpec with ChiselScalatestTester {
   behavior of "MBInitFSM"
   it should "perform parameter exchange -- basic sim" in {
     test(
-      new MBInitFSM(linkTrainingParams, afeParams),
+      new MBInitFSM(linkTrainingParams, afeParams, maxPatternCount = 1 << 32),
     ) { c =>
       initializePorts(c)
       initialCheck(c)
@@ -113,7 +113,7 @@ class MBInitFSMTest extends AnyFlatSpec with ChiselScalatestTester {
   behavior of "MBInitFSM"
   it should "perform parameter exchange with delays" in {
     test(
-      new MBInitFSM(linkTrainingParams, afeParams),
+      new MBInitFSM(linkTrainingParams, afeParams, maxPatternCount = 1 << 32),
     ) { c =>
       initializePorts(c)
       initialCheck(c)
@@ -139,7 +139,7 @@ class MBInitFSMTest extends AnyFlatSpec with ChiselScalatestTester {
   behavior of "MBInitFSM"
   it should "timeout" in {
     test(
-      new MBInitFSM(linkTrainingParams, afeParams),
+      new MBInitFSM(linkTrainingParams, afeParams, maxPatternCount = 1 << 32),
     ) { c =>
       c.clock.setTimeout((0.008 * sbClockFreq).toInt + 20)
       initializePorts(c)
@@ -249,7 +249,7 @@ class MBInitFSMTest extends AnyFlatSpec with ChiselScalatestTester {
     c.io.sbTrainIO.msgReq.initSink().setSinkClock(c.clock)
     c.io.sbTrainIO.msgReqStatus.initSource().setSourceClock(c.clock)
     c.io.patternGeneratorIO.transmitReq.initSink().setSinkClock(c.clock)
-    c.io.patternGeneratorIO.transmitPatternStatus
+    c.io.patternGeneratorIO.resp
       .initSource()
       .setSourceClock(c.clock)
   }
