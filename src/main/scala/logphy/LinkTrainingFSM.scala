@@ -249,8 +249,9 @@ class LinkTrainingFSM(
           patternGenerator.io.patternGeneratorIO.transmitReq.bits.timeoutCycles := (
             0.008 * sbClockFreq,
           ).toInt.U
+          /** TODO: can't make these different lengths for some reason */
           patternGenerator.io.patternGeneratorIO.transmitReq.bits.patternCountMax := (128 + 64 * 4).U
-          patternGenerator.io.patternGeneratorIO.transmitReq.bits.patternDetectedCountMax := (128).U
+          patternGenerator.io.patternGeneratorIO.transmitReq.bits.patternDetectedCountMax := (128 + 64 * 4).U
 
           patternGenerator.io.patternGeneratorIO.transmitReq.valid := true.B
           msgSource := MsgSource.PATTERN_GENERATOR
