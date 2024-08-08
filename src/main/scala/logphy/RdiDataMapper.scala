@@ -29,7 +29,7 @@ class RdiDataMapper(
 
   val io = IO(new Bundle {
     val rdi = Flipped(new RdiDataMapperIO(rdiParams))
-    val mainbandLaneIO = Flipped(new MainbandIO(afeParams))
+    val mainbandIO = Flipped(new MainbandIO(afeParams))
   })
 
   assert(afeParams.mbSerializerRatio * afeParams.mbLanes < rdiParams.width * 8)
@@ -51,10 +51,10 @@ class RdiDataMapper(
     )
   val hasRxData = RegInit(false.B)
   hasRxData := false.B
-  when(io.mainbandLaneIO.rxData.fire) {
+  when(io.mainbandIO.rxData.fire) {
 
     /** chunk */
-    rxData(rxSliceCounter) := io.mainbandLaneIO.rxData.bits
+    rxData(rxSliceCounter) := io.mainbandIO.rxData.bits
     rxSliceCounter := rxSliceCounter + 1.U
     when(rxSliceCounter === (ratio - 1).U) {
       hasRxData := true.B
@@ -73,13 +73,13 @@ class RdiDataMapper(
       ),
     ),
   )
-  txWidthCoupler.io.out <> io.mainbandLaneIO.txData
+  txWidthCoupler.io.out <> io.mainbandIO.txData
 
   io.rdi.lpData.ready := txWidthCoupler.io.in.ready
   txWidthCoupler.io.in.valid := io.rdi.lpData.valid & io.rdi.lpData.irdy
   txWidthCoupler.io.in.bits := io.rdi.lpData.bits
 
   /** RDI has no backpressure mechanism */
-  io.mainbandLaneIO.rxData.ready := true.B
+  io.mainbandIO.rxData.ready := true.B
 
 }

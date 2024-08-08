@@ -81,8 +81,6 @@ class MainbandLaneIO(
     afeParams: AfeParams,
 ) extends Bundle {
 
-  val fifoParams = Input(new FifoParams())
-
   /** Data to transmit on the mainband.
     *
     * Output from the async FIFO.
@@ -102,6 +100,14 @@ class MainbandLaneIO(
   val rxData = Flipped(
     Decoupled(Vec(afeParams.mbLanes, Bits(afeParams.mbSerializerRatio.W))),
   )
+}
+
+class MainbandLaneIOWithFifoIO(
+    afeParams: AfeParams,
+) extends MainbandLaneIO(afeParams) {
+
+  val fifoParams = Input(new FifoParams())
+
 }
 
 class MainbandIO(

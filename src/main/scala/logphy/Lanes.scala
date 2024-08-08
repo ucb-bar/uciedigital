@@ -51,15 +51,83 @@ object OneToLanes {
   }
 }
 
+class LaneIO(afeParams: AfeParams) extends Bundle {
+  val scramble = Input(Bool())
+  val mainbandLaneIO = new MainbandLaneIO(afeParams)
+  val mainbandIO = new MainbandIO(afeParams)
+}
+
+class LaneIOFifo(afeParams: AfeParams) extends LaneIO(afeParams) {
+  override val mainbandLaneIO = new MainbandLaneIOWithFifoIO(afeParams)
+}
+
+class LanesModule(afeParams: AfeParams) extends Module {
+  val io = IO(new LaneIO(afeParams))
+}
+
+class LanesNoFifo(
+    afeParams: AfeParams,
+) extends LanesModule(afeParams) {
+
+  val rxScrambler =
+    Module(
+      new UCIeScrambler(afeParams = afeParams, numLanes = afeParams.mbLanes),
+    )
+
+  val txScrambler =
+    Module(
+      new UCIeScrambler(afeParams = afeParams, numLanes = afeParams.mbLanes),
+    )
+
+  assert(
+    afeParams.mbSerializerRatio > 8 && afeParams.mbSerializerRatio % 8 == 0,
+  )
+
+  val ratioBytes = afeParams.mbSerializerRatio / 8
+
+  val scrambledTx = Wire(chiselTypeOf(io.mainbandLaneIO.txData.bits))
+  val descrambledRx = Wire(chiselTypeOf(io.mainbandLaneIO.rxData.bits))
+
+  val rxDataInput = Wire(chiselTypeOf(io.mainbandLaneIO.rxData.bits))
+  rxDataInput := Mux(io.scramble, descrambledRx, io.mainbandLaneIO.rxData.bits)
+
+  /** Data Scrambling / De-scrambling */
+
+  rxScrambler.io.data_in := io.mainbandLaneIO.rxData.bits
+  rxScrambler.io.valid := io.mainbandLaneIO.rxData.fire
+  descrambledRx := rxScrambler.io.data_out
+  txScrambler.io.data_in := OneToLanes(
+    io.mainbandIO.txData.bits,
+    afeParams.mbLanes,
+    afeParams.mbSerializerRatio,
+  )
+  txScrambler.io.valid := io.mainbandIO.txData.fire
+  scrambledTx := txScrambler.io.data_out
+
+  /** Queue data into FIFOs */
+
+  io.mainbandLaneIO.txData.valid := io.mainbandIO.txData.valid
+  io.mainbandIO.txData.ready := io.mainbandLaneIO.txData.ready
+  io.mainbandLaneIO.txData.bits := Mux(
+    io.scramble,
+    scrambledTx,
+    txScrambler.io.data_in,
+  )
+
+  io.mainbandIO.rxData.valid := io.mainbandLaneIO.rxData.valid
+  io.mainbandIO.rxData.bits := LanesToOne(
+    rxDataInput,
+    afeParams.mbLanes,
+    afeParams.mbSerializerRatio,
+  )
+  io.mainbandIO.rxData.ready := true.B
+}
+
 class Lanes(
     afeParams: AfeParams,
     queueParams: AsyncQueueParams,
-) extends Module {
-  val io = IO(new Bundle() {
-    val scramble = Input(Bool())
-    val mainbandLaneIO = new MainbandLaneIO(afeParams)
-    val mainbandIO = new MainbandIO(afeParams)
-  })
+) extends LanesModule(afeParams) {
+  override val io = IO(new LaneIOFifo(afeParams))
 
   val txMBFifo =
     Module(
