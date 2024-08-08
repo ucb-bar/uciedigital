@@ -61,15 +61,8 @@ class LaneIOFifo(afeParams: AfeParams) extends LaneIO(afeParams) {
   override val mainbandLaneIO = new MainbandLaneIOWithFifoIO(afeParams)
 }
 
-abstract class LanesModule extends Module {
+abstract class LanesModule(afeParams: AfeParams) extends Module {
   val io: LaneIO
-}
-
-class LanesNoFifo(
-    afeParams: AfeParams,
-) extends LanesModule {
-
-  val io = IO(new LaneIO(afeParams))
 
   val rxScrambler =
     Module(
@@ -80,12 +73,17 @@ class LanesNoFifo(
     Module(
       new UCIeScrambler(afeParams = afeParams, numLanes = afeParams.mbLanes),
     )
+}
+
+class LanesNoFifo(
+    afeParams: AfeParams,
+) extends LanesModule(afeParams) {
+
+  val io = IO(new LaneIO(afeParams))
 
   assert(
     afeParams.mbSerializerRatio > 8 && afeParams.mbSerializerRatio % 8 == 0,
   )
-
-  val ratioBytes = afeParams.mbSerializerRatio / 8
 
   val scrambledTx = Wire(chiselTypeOf(io.mainbandLaneIO.txData.bits))
   val descrambledRx = Wire(chiselTypeOf(io.mainbandLaneIO.rxData.bits))
@@ -128,7 +126,7 @@ class LanesNoFifo(
 class Lanes(
     afeParams: AfeParams,
     queueParams: AsyncQueueParams,
-) extends LanesModule {
+) extends LanesModule(afeParams) {
 
   val io = IO(new LaneIOFifo(afeParams))
 
@@ -146,15 +144,6 @@ class Lanes(
         queueParams,
       ),
     )
-  val rxScrambler =
-    Module(
-      new UCIeScrambler(afeParams = afeParams, numLanes = afeParams.mbLanes),
-    )
-
-  val txScrambler =
-    Module(
-      new UCIeScrambler(afeParams = afeParams, numLanes = afeParams.mbLanes),
-    )
 
   rxMBFifo.io.enq <> io.mainbandLaneIO.rxData
   rxMBFifo.io.deq_clock := clock
@@ -170,8 +159,6 @@ class Lanes(
   assert(
     afeParams.mbSerializerRatio > 8 && afeParams.mbSerializerRatio % 8 == 0,
   )
-
-  val ratioBytes = afeParams.mbSerializerRatio / 8
 
   val scrambledTx = Wire(chiselTypeOf(txMBFifo.io.enq.bits))
   val descrambledRx = Wire(chiselTypeOf(rxMBFifo.io.deq.bits))
@@ -211,35 +198,12 @@ class Lanes(
   rxMBFifo.io.deq.ready := true.B
 }
 
-class MainbandSimIO(afeParams: AfeParams) extends Bundle {
-  val txData = Decoupled(
-    Vec(afeParams.mbLanes, Bits(afeParams.mbSerializerRatio.W)),
-  )
-  val rxData = Flipped(
-    Decoupled(Vec(afeParams.mbLanes, Bits(afeParams.mbSerializerRatio.W))),
-  )
-}
-
 class SimLanes(
     afeParams: AfeParams,
     queueParams: AsyncQueueParams,
-) extends Module {
+) extends LanesModule(afeParams) {
 
-  val io = IO(new Bundle() {
-    val scramble = Input(Bool())
-    val mainbandIo = new MainbandSimIO(afeParams)
-    val mainbandLaneIO = new MainbandIO(afeParams)
-  })
-
-  val rxScrambler =
-    Module(
-      new UCIeScrambler(afeParams = afeParams, numLanes = afeParams.mbLanes),
-    )
-
-  val txScrambler =
-    Module(
-      new UCIeScrambler(afeParams = afeParams, numLanes = afeParams.mbLanes),
-    )
+  val io = IO(new LaneIO(afeParams))
 
   val txMBFifo =
     Module(
@@ -256,8 +220,8 @@ class SimLanes(
       ),
     )
 
-  rxMBFifo.io.enq <> io.mainbandIo.rxData
-  txMBFifo.io.deq <> io.mainbandIo.txData
+  rxMBFifo.io.enq <> io.mainbandIO.rxData
+  txMBFifo.io.deq <> io.mainbandIO.txData
 
   txMBFifo.io.enq.valid := io.mainbandLaneIO.txData.valid
   io.mainbandLaneIO.rxData.valid := rxMBFifo.io.deq.valid
