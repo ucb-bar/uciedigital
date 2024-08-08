@@ -102,11 +102,7 @@ class LogicalPhy(
   if (afeParams.STANDALONE) {
     lanes.io.mainbandLaneIO.txData <> io.mbAfe.get.txData
     lanes.io.mainbandLaneIO.rxData <> io.mbAfe.get.rxData
-    lanes
-      .asInstanceOf[Lanes]
-      .io
-      .mainbandLaneIO
-      .fifoParams <> io.mbAfe.get.fifoParams
+    lanes.asInstanceOf[Lanes].asyncQueueIO <> io.mbAfe.get.fifoParams
   } else {
     lanes.io.mainbandLaneIO <> io.phyAfe.get
   }
