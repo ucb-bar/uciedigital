@@ -61,13 +61,15 @@ class LaneIOFifo(afeParams: AfeParams) extends LaneIO(afeParams) {
   override val mainbandLaneIO = new MainbandLaneIOWithFifoIO(afeParams)
 }
 
-class LanesModule(afeParams: AfeParams) extends Module {
-  val io = IO(new LaneIO(afeParams))
+abstract class LanesModule extends Module {
+  val io: LaneIO
 }
 
 class LanesNoFifo(
     afeParams: AfeParams,
-) extends LanesModule(afeParams) {
+) extends LanesModule {
+
+  val io = IO(new LaneIO(afeParams))
 
   val rxScrambler =
     Module(
@@ -126,8 +128,9 @@ class LanesNoFifo(
 class Lanes(
     afeParams: AfeParams,
     queueParams: AsyncQueueParams,
-) extends LanesModule(afeParams) {
-  override val io = IO(new LaneIOFifo(afeParams))
+) extends LanesModule {
+
+  val io = IO(new LaneIOFifo(afeParams))
 
   val txMBFifo =
     Module(
