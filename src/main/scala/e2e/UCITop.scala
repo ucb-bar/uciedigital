@@ -45,7 +45,7 @@ class UCITop(
     // IOs for connecting to the AFE in the standalone mode
     val mbAfe_tx = if (afeParams.STANDALONE) Some(Output(new MainbandIo(afeParams.mbLanes))) else None
     val mbAfe_rx = if (afeParams.STANDALONE) Some(Input(new MainbandIo(afeParams.mbLanes))) else None
-    val phyAfe = if (afeParams.STANDALONE) None else Some(Flipped(new MainbandLaneIOWithFifoIO(afeParams)))
+    val phyAfe = if (afeParams.STANDALONE) None else Some(new MainbandLaneIO(afeParams))
     val sbTxIO = Output(new SidebandIo)
     val sbRxIO = Input(new SidebandIo)
   })

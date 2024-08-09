@@ -21,7 +21,7 @@ class LogicalPhy(
       if (afeParams.STANDALONE) Some(new MainbandAfeIo(afeParams)) else None
     val phyAfe =
       if (afeParams.STANDALONE) None
-      else Some(Flipped(new MainbandLaneIO(afeParams)))
+      else Some(new MainbandLaneIO(afeParams))
     val sbAfe = new SidebandAfeIo(afeParams)
   })
 
