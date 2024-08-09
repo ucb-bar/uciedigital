@@ -79,40 +79,32 @@ class LogicalPhy(
 
   val rdiDataMapper = Module(new RdiDataMapper(rdiParams, afeParams))
 
-  val lanes = Module(new Lanes(afeParams, laneAsyncQueueParams))
+  val lanes =
+    if (afeParams.STANDALONE) {
+      Module(new Lanes(afeParams, laneAsyncQueueParams))
+    } else {
+      Module(new LanesNoFifo(afeParams))
+    }
 
   /** TODO: need to drive this from state machine */
-  lanes.io.scramble := true.B
+  lanes.io.scramble := trainingModule.io.currentState === LinkTrainingState.active
+  when(trainingModule.io.currentState === LinkTrainingState.active) {
+    rdiDataMapper.io.mainbandIO <> lanes.io.mainbandIO
+    trainingModule.io.mainbandFSMIO.mainbandIO.rxData.noenq()
+    trainingModule.io.mainbandFSMIO.mainbandIO.txData.nodeq()
+  }.otherwise {
+    rdiDataMapper.io.mainbandIO.rxData.noenq()
+    rdiDataMapper.io.mainbandIO.txData.nodeq()
+    trainingModule.io.mainbandFSMIO.mainbandIO <> lanes.io.mainbandIO
+  }
 
   /** Connect internal FIFO to AFE */
   if (afeParams.STANDALONE) {
     lanes.io.mainbandLaneIO.txData <> io.mbAfe.get.txData
     lanes.io.mainbandLaneIO.rxData <> io.mbAfe.get.rxData
-    lanes.io.mainbandLaneIO.fifoParams <> io.mbAfe.get.fifoParams
-    when(trainingModule.io.currentState === LinkTrainingState.active) {
-      rdiDataMapper.io.mainbandLaneIO <> lanes.io.mainbandIO
-      trainingModule.io.mainbandFSMIO.mainbandIO.rxData.noenq()
-      trainingModule.io.mainbandFSMIO.mainbandIO.txData.nodeq()
-    }.otherwise {
-      rdiDataMapper.io.mainbandLaneIO.rxData.noenq()
-      rdiDataMapper.io.mainbandLaneIO.txData.nodeq()
-      trainingModule.io.mainbandFSMIO.mainbandIO <> lanes.io.mainbandIO
-    }
+    lanes.asInstanceOf[Lanes].asyncQueueIO <> io.mbAfe.get.fifoParams
   } else {
-    rdiDataMapper.io.mainbandLaneIO <> io.phyAfe.get
-    // defaults to zero
-    /** TODO: not sure what is going on here */
-    lanes.io.mainbandLaneIO.fifoParams.clk := 0.U.asTypeOf(Clock())
-    lanes.io.mainbandLaneIO.fifoParams.reset := 0.U
-    lanes.io.mainbandLaneIO.txData.ready := 0.U
-    lanes.io.mainbandLaneIO.rxData.valid := 0.U
-    lanes.io.mainbandLaneIO.rxData.bits := 0.U.asTypeOf(
-      lanes.io.mainbandIO.rxData.bits,
-    )
-    lanes.io.mainbandLaneIO.txData.valid := 0.U
-    lanes.io.mainbandLaneIO.txData.bits := 0.U.asTypeOf(
-      lanes.io.mainbandIO.txData.bits,
-    )
+    lanes.io.mainbandLaneIO <> io.phyAfe.get
   }
 
   /** Connect RDI to Mainband IO */

@@ -18,10 +18,10 @@ class LogPhyLaneTest extends AnyFlatSpec with ChiselScalatestTester {
     test(new SimLanes(afeParams, queueParams)) { c =>
       initPorts(c, false)
 
-      c.io.mainbandLaneIO.txData.enqueueNow(
+      c.io.mainbandIO.txData.enqueueNow(
         "h1234_5678_9abc_def0_0fed_cba9_8765_4321_1111_2222_3333_4444_5555_6666_7777_8888".U,
       )
-      c.io.mainbandIo.txData
+      c.io.mainbandLaneIO.txData
         .expectDequeueNow(
           Vec.Lit(
             "h2188".U,
@@ -50,7 +50,7 @@ class LogPhyLaneTest extends AnyFlatSpec with ChiselScalatestTester {
     test(new SimLanes(afeParams, queueParams)) { c =>
       initPorts(c, scramble = false)
 
-      c.io.mainbandIo.rxData
+      c.io.mainbandLaneIO.rxData
         .enqueueNow(
           Vec.Lit(
             "h1211".U,
@@ -71,7 +71,7 @@ class LogPhyLaneTest extends AnyFlatSpec with ChiselScalatestTester {
             "h2188".U,
           ),
         )
-      c.io.mainbandLaneIO.rxData.expectDequeueNow(
+      c.io.mainbandIO.rxData.expectDequeueNow(
         "h2143_6587_a9cb_ed0f_f0de_bc9a_7856_3412_8888_7777_6666_5555_4444_3333_2222_1111".U,
       )
 
@@ -83,13 +83,13 @@ class LogPhyLaneTest extends AnyFlatSpec with ChiselScalatestTester {
     test(new SimLanes(afeParams, queueParams)) { c =>
       initPorts(c, scramble = true)
 
-      c.io.mainbandLaneIO.txData.enqueueNow(
+      c.io.mainbandIO.txData.enqueueNow(
         "h1234_5678_9abc_def0_0fed_cba9_8765_4321_1111_2222_3333_4444_5555_6666_7777_8888".U,
       )
 
       c.clock.step()
 
-      c.io.mainbandIo.txData
+      c.io.mainbandLaneIO.txData
         .expectDequeueNow(
           Vec.Lit(
             "b1001111000110100".U, // "h2188".U  ^ "1011_1111_1011_1100".U,
@@ -116,13 +116,13 @@ class LogPhyLaneTest extends AnyFlatSpec with ChiselScalatestTester {
       println()
       println()
 
-      c.io.mainbandLaneIO.txData.enqueueNow(
+      c.io.mainbandIO.txData.enqueueNow(
         "h1234_5678_9abc_def0_0fed_cba9_8765_4321_1111_2222_3333_4444_5555_6666_7777_8888".U,
       )
 
       c.clock.step()
 
-      c.io.mainbandIo.txData
+      c.io.mainbandLaneIO.txData
         .expectDequeueNow(
           Vec.Lit(
             "b100110010101".U, // "h2188".U   ^ "0b0010100000011101".U
@@ -177,14 +177,14 @@ class LogPhyLaneTest extends AnyFlatSpec with ChiselScalatestTester {
   }
 
   private def initPorts(c: SimLanes, scramble: Boolean): Unit = {
-    c.io.mainbandLaneIO.txData.initSource()
-    c.io.mainbandLaneIO.txData.setSourceClock(c.clock)
-    c.io.mainbandLaneIO.rxData.initSink()
-    c.io.mainbandLaneIO.rxData.setSinkClock(c.clock)
-    c.io.mainbandIo.txData.initSink()
-    c.io.mainbandIo.txData.setSinkClock(c.clock)
-    c.io.mainbandIo.rxData.initSource()
-    c.io.mainbandIo.rxData.setSourceClock(c.clock)
+    c.io.mainbandIO.txData.initSource()
+    c.io.mainbandIO.txData.setSourceClock(c.clock)
+    c.io.mainbandIO.rxData.initSink()
+    c.io.mainbandIO.rxData.setSinkClock(c.clock)
+    c.io.mainbandLaneIO.txData.initSink()
+    c.io.mainbandLaneIO.txData.setSinkClock(c.clock)
+    c.io.mainbandLaneIO.rxData.initSource()
+    c.io.mainbandLaneIO.rxData.setSourceClock(c.clock)
     c.io.scramble.poke(scramble.B)
   }
 
@@ -200,8 +200,8 @@ class LanesLoopBack(
   })
   val lanes = Module(new SimLanes(afeParams, queueParams))
   lanes.io.scramble := io.scramble
-  lanes.io.mainbandLaneIO <> io.mainbandLaneIO
-  lanes.io.mainbandIo.txData <> lanes.io.mainbandIo.rxData
+  lanes.io.mainbandIO <> io.mainbandLaneIO
+  lanes.io.mainbandLaneIO.txData <> lanes.io.mainbandLaneIO.rxData
   when(io.mainbandLaneIO.rxData.fire) {
     printf("rxDataBits: %x\n", io.mainbandLaneIO.rxData.bits)
   }

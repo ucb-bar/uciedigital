@@ -154,7 +154,6 @@ class MBInitFSM(
           }
         }
         is(ParamSubState.SEND_RESP) {
-          printf("in MB init send resp\n")
           io.sbTrainIO.msgReq.valid := true.B
           val exchangedMaxDataRate = Wire(UInt(4.W))
           exchangedMaxDataRate := Mux(
@@ -178,7 +177,6 @@ class MBInitFSM(
           }
         }
         is(ParamSubState.WAIT_RESP) {
-          printf("in MB init wait resp\n")
           io.sbTrainIO.msgReqStatus.ready := true.B
           when(io.sbTrainIO.msgReqStatus.fire) {
             when(
