@@ -83,7 +83,7 @@ class RxMainbandDeserializer(
 
 class MbAfe(afeParams: AfeParams) extends Module {
   val io = IO(new Bundle {
-    val mbAfeIo = Flipped(new MainbandAfeIo(AfeParams()))
+    val mbAfeIo = Flipped(new MainbandAfeIo(afeParams))
     val mbTxData = Output(new MainbandIo(afeParams.mbLanes))
     val mbRxData = Input(new MainbandIo(afeParams.mbLanes))
   })
