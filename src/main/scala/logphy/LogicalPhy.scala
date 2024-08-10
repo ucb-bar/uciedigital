@@ -86,7 +86,6 @@ class LogicalPhy(
       Module(new LanesNoFifo(afeParams))
     }
 
-  /** TODO: need to drive this from state machine */
   lanes.io.scramble := trainingModule.io.currentState === LinkTrainingState.active
   when(trainingModule.io.currentState === LinkTrainingState.active) {
     rdiDataMapper.io.mainbandIO <> lanes.io.mainbandIO

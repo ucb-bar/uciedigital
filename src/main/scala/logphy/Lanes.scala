@@ -121,8 +121,14 @@ class LanesNoFifo(
     afeParams.mbSerializerRatio > 8 && afeParams.mbSerializerRatio % 8 == 0,
   )
 
-  rxScramblerInput <> io.mainbandLaneIO.rxData
-  io.mainbandLaneIO.txData <> txScramblerOutput
+  if (afeParams.mbSerializerRatio == 16) {
+    rxScramblerInput <> io.mainbandLaneIO.rxData
+    io.mainbandLaneIO.txData <> txScramblerOutput
+  } else {
+    rxScramblerInput <> io.mainbandLaneIO.rxData
+    io.mainbandLaneIO.txData <> txScramblerOutput
+  }
+
 
 }
 
