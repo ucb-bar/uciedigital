@@ -23,6 +23,7 @@ class LogicalPhy(
       if (afeParams.STANDALONE) None
       else Some(new MainbandLaneIO(afeParams))
     val sbAfe = new SidebandAfeIo(afeParams)
+    val train = if (afeParams.STANDALONE) None else Some(new TrainingOperation(afeParams, linkTrainingParams.maxPatternCount))
   })
 
   val trainingModule = {
@@ -32,7 +33,11 @@ class LogicalPhy(
   }
 
   /** TODO: replace this with MMIO module instantiations */
-  trainingModule.io.trainingOperationIO := DontCare
+  if (afeParams.STANDALONE) {
+    trainingModule.io.trainingOperationIO := DontCare
+  } else {
+    trainingModule.io.trainingOperationIO <> io.train.get
+  }
 
   if (afeParams.STANDALONE) {
     trainingModule.io.mainbandFSMIO.pllLock <> io.mbAfe.get.pllLock

@@ -48,6 +48,7 @@ class UCITop(
     val phyAfe = if (afeParams.STANDALONE) None else Some(new MainbandLaneIO(afeParams))
     val sbTxIO = Output(new SidebandIo)
     val sbRxIO = Input(new SidebandIo)
+    val train = if (afeParams.STANDALONE) None else Some(new TrainingOperation(afeParams, linkTrainingParams.maxPatternCount))
   })
 
   // Instantiate the agnostic protocol layer
@@ -97,6 +98,7 @@ class UCITop(
     logPhy.io.mbAfe.get <> dafe.io.mbAfeIo 
   } else {
     logPhy.io.phyAfe.get <> io.phyAfe.get
+    logPhy.io.train.get <> io.train.get
     // defaults to zero
     dafe.io.mbAfeIo.txData.valid := 0.U
     dafe.io.mbAfeIo.txData.bits := 0.U.asTypeOf(dafe.io.mbAfeIo.txData.bits)
