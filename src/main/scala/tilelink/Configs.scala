@@ -8,7 +8,7 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import org.chipsalliance.cde.config.{Field, Config, Parameters}
 import freechips.rocketchip.subsystem._
-// import testchipip.soc.{OBUS}
+import testchipip.soc.{OBUS}
 //import freechips.rocketchip.subsystem.{BaseSubsystem, CacheBlockBytes}
 import freechips.rocketchip.regmapper.{HasRegMap, RegField}
 import interfaces._
@@ -32,7 +32,7 @@ case object UCITLKey extends Field[Option[UCITLParams]](None)
 trait CanHaveTLUCIAdapter { this: BaseSubsystem =>
   val uciTL = p(UCITLKey) match {
     case Some(params) => {
-      val obus = locateTLBusWrapper(SBUS) // TODO: make parameterizable?
+      val obus = locateTLBusWrapper(OBUS) // TODO: make parameterizable?
       val sbus = locateTLBusWrapper(SBUS)
       val uciTL = LazyModule(
         new UCITLFront(
