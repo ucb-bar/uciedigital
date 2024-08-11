@@ -86,7 +86,9 @@ class RdiDataMapper(
         ),
       ),
     )
-    txWidthCoupler.io.out <> io.mainbandIO.txData
+    io.mainbandIO.txData.bits := txWidthCoupler.io.out.bits.data
+    io.mainbandIO.txData.valid := txWidthCoupler.io.out.valid
+    txWidthCoupler.io.out.ready := io.mainbandIO.txData.ready 
 
     io.rdi.lpData.ready := txWidthCoupler.io.in.ready
     txWidthCoupler.io.in.valid := io.rdi.lpData.valid & io.rdi.lpData.irdy

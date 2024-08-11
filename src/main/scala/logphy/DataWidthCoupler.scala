@@ -71,7 +71,7 @@ class DataWidthCoupler(params: DataWidthCouplerParams) extends Module {
         }
       }
       is(State.CHUNK_OR_COLLECT) {
-        io.out.bits := inData
+        io.out.bits.data := inData
           .asTypeOf(Vec(ratio, Bits(params.outWidth.W)))(
             chunkCounter,
           )
