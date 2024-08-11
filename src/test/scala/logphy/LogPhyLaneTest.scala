@@ -12,6 +12,7 @@ import scala.util.Random
 
 class LogPhyLaneTest extends AnyFlatSpec with ChiselScalatestTester {
   val afeParams = AfeParams()
+  val afeParams32 = AfeParams(mbSerializerRatio = 32)
   val queueParams = new AsyncQueueParams()
   behavior of "log phy TX lanes no scramble"
   it should "correctly map TX bytes to their lanes" in {
@@ -162,6 +163,68 @@ class LogPhyLaneTest extends AnyFlatSpec with ChiselScalatestTester {
         val dataEnqueued =
           BigInt(afeParams.mbLanes * afeParams.mbSerializerRatio, rand)
             .U((afeParams.mbLanes * afeParams.mbSerializerRatio).W)
+        c.io.mainbandLaneIO.txData.enqueueNow(
+          dataEnqueued,
+        )
+        c.clock.step()
+        c.io.mainbandLaneIO.rxData.expectDequeueNow(
+          dataEnqueued,
+        )
+        c.clock.step()
+
+      }
+
+    }
+  }
+
+  behavior of "log phy with serializer ratio 32"
+  it should "correctly map TX bytes to their lanes" in {
+    test(new SimLanes(afeParams32, queueParams)) { c =>
+      initPorts(c, false)
+
+      c.io.mainbandIO.txData.enqueueNow(
+        ("h1234_5678_9abc_def0_0fed_cba9_8765_4321" +
+          "1111_2222_3333_4444_5555_6666_7777_8888" +
+          "1212_2323_3434_4545_5656_6767_7878_8989" +
+          "aaaa_bbbb_cccc_dddd_eeee_ffff_0000_1111").U,
+      )
+      c.io.mainbandLaneIO.txData
+        .expectDequeueNow(
+          Vec.Lit(
+            "h21888911".U,
+            "h43888911".U,
+            "h65777800".U,
+            "h87777800".U,
+            "ha96667ff".U,
+            "hcb6667ff".U,
+            "hed5556ee".U,
+            "h0f5556ee".U,
+            "hf04445dd".U,
+            "hde4445dd".U,
+            "hbc3334cc".U,
+            "h9a3334cc".U,
+            "h782223bb".U,
+            "h562223bb".U,
+            "h341112aa".U,
+            "h121112aa".U,
+          ),
+        )
+    }
+  }
+  it should "tx data matches rx data" in {
+    test(new LanesLoopBack(afeParams32, queueParams)) { c =>
+      c.io.mainbandLaneIO.txData.initSource()
+      c.io.mainbandLaneIO.txData.setSourceClock(c.clock)
+      c.io.mainbandLaneIO.rxData.initSink()
+      c.io.mainbandLaneIO.rxData.setSinkClock(c.clock)
+      c.io.scramble.poke(true.B)
+
+      val rand = new Random()
+      for (i <- 0 until 20) {
+        println("i: ", i)
+        val dataEnqueued =
+          BigInt(afeParams32.mbLanes * afeParams32.mbSerializerRatio, rand)
+            .U((afeParams32.mbLanes * afeParams32.mbSerializerRatio).W)
         c.io.mainbandLaneIO.txData.enqueueNow(
           dataEnqueued,
         )

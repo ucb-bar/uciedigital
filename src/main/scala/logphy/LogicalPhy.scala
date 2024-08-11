@@ -4,6 +4,8 @@ package logphy
 import interfaces._
 import sideband._
 import chisel3._
+import chisel3.experimental.BundleLiterals.AddBundleLiteralConstructor
+import chisel3.experimental.VecLiterals.AddObjectLiteralConstructor
 import freechips.rocketchip.util.AsyncQueueParams
 
 class LogicalPhy(
@@ -21,9 +23,14 @@ class LogicalPhy(
       if (afeParams.STANDALONE) Some(new MainbandAfeIo(afeParams)) else None
     val phyAfe =
       if (afeParams.STANDALONE) None
-      else Some(new MainbandLaneIO(afeParams))
+      else Some(new MainbandLaneIOWithValid(afeParams))
     val sbAfe = new SidebandAfeIo(afeParams)
-    val train = if (afeParams.STANDALONE) None else Some(new TrainingOperation(afeParams, linkTrainingParams.maxPatternCount))
+    val train =
+      if (afeParams.STANDALONE) None
+      else
+        Some(
+          new TrainingOperation(afeParams, linkTrainingParams.maxPatternCount),
+        )
   })
 
   val trainingModule = {
@@ -108,7 +115,16 @@ class LogicalPhy(
     lanes.io.mainbandLaneIO.rxData <> io.mbAfe.get.rxData
     lanes.asInstanceOf[Lanes].asyncQueueIO <> io.mbAfe.get.fifoParams
   } else {
-    lanes.io.mainbandLaneIO <> io.phyAfe.get
+
+    io.phyAfe.get.tx <> lanes.io.mainbandLaneIO.txData.map(f => {
+      val x = Wire(chiselTypeOf(io.phyAfe.get.tx.bits))
+      x.data := f
+      x.valid := Vec.Lit(Seq.fill(afeParams.mbSerializerRatio)(true.B): _*)
+      x
+    })
+    io.phyAfe.get.rx.map(_.data) <> lanes.io.mainbandLaneIO.rxData
+    io.phyAfe.get.rxRst := false.B
+    io.phyAfe.get.txRst := false.B
   }
 
   /** Connect RDI to Mainband IO */

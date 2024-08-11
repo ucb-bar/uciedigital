@@ -102,6 +102,18 @@ class MainbandLaneIO(
   )
 }
 
+class MainbandLaneDataValid(afeParams: AfeParams) extends Bundle {
+  val data = Vec(afeParams.mbLanes, Bits(afeParams.mbSerializerRatio.W))
+  val valid = Vec(afeParams.mbSerializerRatio, Bool())
+}
+
+class MainbandLaneIOWithValid(afeParams: AfeParams) extends Bundle {
+  val tx = Decoupled(new MainbandLaneDataValid(afeParams))
+  val rx = Flipped(Decoupled(new MainbandLaneDataValid(afeParams)))
+  val txRst = Output(Bool())
+  val rxRst = Output(Bool())
+}
+
 class MainbandLaneIOWithFifoIO(
     afeParams: AfeParams,
 ) extends MainbandLaneIO(afeParams) {

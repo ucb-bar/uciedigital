@@ -22,15 +22,20 @@ class UcieDigitalTopIO(mbLanes: Int = 16, STANDALONE: Boolean = true)
   //  FDI interface for testing purposes only
   // val fdi = new Fdi(fdiParams)
   // IOs for connecting to the AFE
-  val afeParams = AfeParams()
+  val mbSerializerRatio = if (STANDALONE) 16 else 32
+  val afeParams =
+    AfeParams(mbSerializerRatio = mbSerializerRatio, STANDALONE = STANDALONE)
   val linkTrainingParams = LinkTrainingParams()
   val mbAfe_tx = if (STANDALONE) Some(Output(new MainbandIo(mbLanes))) else None
   val mbAfe_rx = if (STANDALONE) Some(Input(new MainbandIo(mbLanes))) else None
   val phyAfe =
-    if (STANDALONE) None else Some(new MainbandLaneIO(afeParams))
+    if (STANDALONE) None else Some(new MainbandLaneIOWithValid(afeParams))
   val rxSbAfe = Input(new SidebandIo())
   val txSbAfe = Output(new SidebandIo())
-  val train = if (STANDALONE) None else Some(new TrainingOperation(afeParams, linkTrainingParams.maxPatternCount))
+  val train =
+    if (STANDALONE) None
+    else
+      Some(new TrainingOperation(afeParams, linkTrainingParams.maxPatternCount))
   // val mbAfe = new MainbandAfeIo(afeParams)
   // val sbAfe = new SidebandAfeIo(afeParams)
 }
