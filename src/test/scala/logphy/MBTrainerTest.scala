@@ -202,9 +202,9 @@ class MBTrainerTest extends AnyFlatSpec with ChiselScalatestTester {
   }
 
   private def triggerExit(c: MBTrainer, timeoutCyclesDefault: Int): Unit = {
-    c.io.trainingOperationIO.triggerExit.poke(true.B)
-    c.clock.step()
-    c.io.trainingOperationIO.triggerExit.poke(false.B)
+    c.io.trainingOperationIO.triggerExit.read.poke(true.B)
+    c.io.trainingOperationIO.triggerExit.write.expectDequeueNow(false.B)
+    c.io.trainingOperationIO.triggerExit.read.poke(false.B)
 
     /** Expect Pt Test End Test Req */
     expectSBReq(
@@ -226,12 +226,14 @@ class MBTrainerTest extends AnyFlatSpec with ChiselScalatestTester {
       timeoutCyclesDefault: Int,
       maxErrors: Int,
   ): Unit = {
-    c.io.trainingOperationIO.triggerNew.poke(true.B)
+    c.io.trainingOperationIO.triggerNew.read.poke(true.B)
     c.io.trainingOperationIO.pattern.poke(transmitPattern)
     c.io.trainingOperationIO.patternUICount.poke(patternUICount.U)
-    c.io.trainingOperationIO.triggerExit.poke(false.B)
-    c.clock.step()
-    c.io.trainingOperationIO.triggerNew.poke(false.B)
+    c.io.trainingOperationIO.triggerExit.read.poke(false.B)
+
+    c.io.trainingOperationIO.triggerNew.write.expectDequeueNow(false.B)
+
+    c.io.trainingOperationIO.triggerNew.read.poke(false.B)
     c.io.patternGeneratorIO.transmitReq.expectInvalid()
     c.io.patternGeneratorIO.resp.ready.expect(false.B)
     println("External trigger")
@@ -391,5 +393,7 @@ class MBTrainerTest extends AnyFlatSpec with ChiselScalatestTester {
     c.io.patternGeneratorIO.resp
       .initSource()
       .setSourceClock(c.clock)
+    c.io.trainingOperationIO.triggerNew.write.initSink().setSinkClock(c.clock)
+    c.io.trainingOperationIO.triggerExit.write.initSink().setSinkClock(c.clock)
   }
 }

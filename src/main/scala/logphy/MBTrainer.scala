@@ -7,17 +7,17 @@ import chisel3.util._
 import sideband.{SBM, SBMessage_factory}
 
 /** TODO: make timeout cycles optional */
+
 class TrainingOperation(afeParams: AfeParams, maxPatternCount: Int)
     extends Bundle {
   val maxPatternCountWidth = log2Ceil(maxPatternCount + 1)
   val pattern = Input(TransmitPattern())
   val patternUICount = Input(UInt(maxPatternCountWidth.W))
-  val triggerNew = Input(Bool())
-  val triggerExit = Input(Bool())
   val outputValid = Output(Bool())
   val errorCounts = Output(Vec(afeParams.mbLanes, UInt(maxPatternCountWidth.W)))
+  val triggerNew = Flipped(new RegisterRWIO(Bool()))
+  val triggerExit = Flipped(new RegisterRWIO(Bool()))
 }
-
 class MBTrainer(
     linkTrainingParams: LinkTrainingParams,
     afeParams: AfeParams,
@@ -62,7 +62,19 @@ class MBTrainer(
   private val txDtoCPointReq = RegInit(0.U.asTypeOf(new TxDtoCPointReq))
 
   io.sbMsgWrapperReset := false.B
-  when(io.trainingOperationIO.triggerNew) {
+  val triggerNew = io.trainingOperationIO.triggerNew.read
+  val triggerExit = io.trainingOperationIO.triggerExit.read
+
+  io.trainingOperationIO.triggerExit.write.noenq()
+  io.trainingOperationIO.triggerNew.write.noenq()
+  when(triggerNew) {
+    io.trainingOperationIO.triggerNew.write.enq(false.B)
+  }
+  when(triggerExit) {
+    io.trainingOperationIO.triggerExit.write.enq(false.B)
+  }
+
+  when(triggerNew) {
     currentState := State.SEND_PTTEST_REQ
     io.sbMsgWrapperReset := true.B
 
@@ -71,7 +83,7 @@ class MBTrainer(
     pointReq.dataPattern := io.trainingOperationIO.pattern.asUInt
     pointReq.iterationCount := io.trainingOperationIO.patternUICount
     txDtoCPointReq := pointReq
-  }.elsewhen(io.trainingOperationIO.triggerExit) {
+  }.elsewhen(triggerExit) {
     currentState := State.PTTEST_END_TEST_REQ_SEND
     io.sbMsgWrapperReset := true.B
   }
@@ -150,13 +162,15 @@ class MBTrainer(
     is(State.WAIT_PTTEST_REQ_SEND) {
 
       /** Send the request to the SB trainer to wait for the Pt Test Req msg */
-      io.sbTrainIO.msgReq.valid := true.B
+      // io.sbTrainIO.msgReq.valid := true.B
       val txDtoCPointReq = Wire(new TxDtoCPointReq)
       txDtoCPointReq := DontCare
-      io.sbTrainIO.msgReq.bits := formStartTxDtoCPointReq(
-        0.U,
-        txDtoCPointReq,
-        MessageRequestType.RECEIVE,
+      io.sbTrainIO.msgReq.enq(
+        formStartTxDtoCPointReq(
+          0.U,
+          txDtoCPointReq,
+          MessageRequestType.RECEIVE,
+        ),
       )
       when(io.sbTrainIO.msgReq.fire) {
         currentState := State.WAIT_PTTEST_REQ
