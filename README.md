@@ -18,6 +18,9 @@ If you are running `sbt` commands frequently, you may find it useful
 to leave the sbt shell (launched by running `sbt` with no arguments) open.
 You can then compile/test the code from the sbt shell.
 
+`sbt` can not [compile the Scala compiler bridge under JDK21](https://github.com/sbt/sbt/issues/7235) (without bumping the Scala minor version - for which the chisel compiler plugin is unavailable).
+To work around this, install an older JDK and pass its path to sbt (e.g. `sbt --java-home /usr/lib/jvm/java-17-openjdk/`).
+
 ## Documentation
 
 See the [API documentation](https://ucb-ucie.github.io/uciedigital/edu/berkeley/cs/ucie/digital/index.html).
@@ -29,7 +32,7 @@ If you'd like to contribute, please let us know. You can:
 
 - Open an issue.
 - Email vikramj@berkeley.edu and rahulkumar@berkeley.edu.
-  
+
 Documentation updates, tests, and bugfixes are always welcome.
 For larger feature additions, please discuss your ideas with us before implementing them.
 

@@ -81,6 +81,7 @@ class Fdi(params: FdiParams) extends Bundle {
     *
     * Encompasses `lp_dllp` and `lp_dllp_valid` from the UCIe specification.
     */
+  // TODO: we don't use dllp's at all, make these IOs optional
   val lpDllp = Valid(Bits(params.dllpWidth.W))
 
   /** Indicates that the corresponding DLLP bytes on lp_dllp follow the

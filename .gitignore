@@ -26,6 +26,7 @@ project/**/metals.sbt
 
 ### Chiseltest ###
 test_run_dir/
+vlog/
 
 ### IDEs ###
 .vscode/
