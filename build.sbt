@@ -49,7 +49,7 @@ ThisBuild / scalacOptions := Seq(
 
 Compile / doc / scalacOptions += "-groups"
 
-val chiselVersion = "3.6.0"
+val chiselVersion = "3.6.1"
 
 // SNAPSHOT repositories
 libraryDependencies ++=
