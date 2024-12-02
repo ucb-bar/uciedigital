@@ -2,10 +2,10 @@ package edu.berkeley.cs.ucie.digital
 package afe
 
 import chisel3._
-import chisel3.util._
-import chisel3.stage.ChiselStage
+import chisel3.util.{Decoupled, Counter, Reverse}
+import circt.stage.ChiselStage
 import interfaces._
-import chisel3.experimental.DataMirror
+import chisel3.reflect.DataMirror
 import freechips.rocketchip.util.{AsyncQueue, AsyncQueueParams}
 
 // This module receives data from logphy and sends to analog
