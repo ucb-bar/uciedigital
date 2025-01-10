@@ -38,7 +38,7 @@ name := "ucie_digital"
 ThisBuild / organization := "edu.berkeley.cs"
 ThisBuild / version := "0.0.1-SNAPSHOT"
 
-ThisBuild / scalaVersion := "2.13.10"
+ThisBuild / scalaVersion := "2.13.16"
 ThisBuild / scalacOptions := Seq(
   "-deprecation",
   "-feature",
