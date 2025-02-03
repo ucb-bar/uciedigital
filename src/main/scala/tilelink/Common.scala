@@ -23,19 +23,20 @@ case class TileLinkParams(
     val addressRange: BigInt,
     val configAddress: BigInt,
     val inwardQueueDepth: Int,
-    val outwardQueueDepth: Int
+    val outwardQueueDepth: Int,
+    val dataWidth_arg: Int = 256,
 ) {
   val CONFIG_ADDRESS = configAddress
   val ADDRESS = address
   val ADDR_RANGE = addressRange
-  val BEAT_BYTES = 32 // 256 bits/8
-  val CONFIG_BEAT_BYTES = 16
+  val BEAT_BYTES = dataWidth_arg/8 // 32 // 256 bits/8
+  val CONFIG_BEAT_BYTES = 32
   val opcodeWidth = 3
   val paramWidth = 3
   val sourceIDWidth = 8
   val sinkIDWidth = 8
   val addressWidth = 64
-  val dataWidth = 256
+  val dataWidth = dataWidth_arg
   val maskWidth = dataWidth/8
   val sizeWidth = log2Ceil(dataWidth/8) // 5 bits if 256
   val deniedWidth = 1

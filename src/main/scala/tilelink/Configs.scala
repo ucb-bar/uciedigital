@@ -34,6 +34,7 @@ trait CanHaveTLUCIAdapter { this: BaseSubsystem =>
     case Some(params) => {
       val obus = locateTLBusWrapper(OBUS) // TODO: make parameterizable?
       val sbus = locateTLBusWrapper(SBUS)
+      println(s"ORANGES\n TL.dataWidth: ${params.tlParams.dataWidth}")
       val uciTL = LazyModule(
         new UCITLFront(
           tlParams = params.tlParams,
@@ -47,8 +48,11 @@ trait CanHaveTLUCIAdapter { this: BaseSubsystem =>
           laneAsyncQueueParams = params.laneAsyncQueueParams,
         ),
       )
+
+      println(s"APPLES\n uciTL: ${uciTL.tlParams.dataWidth}")
+
       uciTL.clockNode := sbus.fixedClockNode
-      obus.coupleTo(s"ucie_tl_man_port") { 
+      obus.coupleTo(s"ucie_tl_man_port") {
           uciTL.managerNode := TLWidthWidget(obus.beatBytes) := TLBuffer() := TLSourceShrinker(params.tlParams.sourceIDWidth) := TLFragmenter(obus.beatBytes, p(CacheBlockBytes)) := TLBuffer() := _
       } //manager node because SBUS is making request?
       sbus.coupleFrom(s"ucie_tl_cl_port") { _ := TLBuffer() := TLWidthWidget(sbus.beatBytes) := TLBuffer() := uciTL.clientNode }
