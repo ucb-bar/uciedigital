@@ -17,9 +17,9 @@ class Scrambler(
     val data_out = Output(UInt(afeParams.mbSerializerRatio.W))
   })
   val LFSR = Module(
-    new FibonacciLFSR(
+    new ConsistentFibonacciLFSR(
       23,
-      Set(23, 21, 16, 8, 5, 2),
+      Seq(23, 21, 16, 8, 5, 2),
       Some(seed),
       XOR,
       afeParams.mbSerializerRatio,
