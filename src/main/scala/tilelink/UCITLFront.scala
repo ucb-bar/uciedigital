@@ -58,8 +58,7 @@ class UCITLFront(
     val laneAsyncQueueParams: AsyncQueueParams,
 )(implicit p: Parameters)
     extends ClockSinkDomain(ClockSinkParameters())(p) {
-
-      println(s"PLUM\n tlParams.dataWidth: ${tlParams.dataWidth}")
+      override lazy val desiredName = "UCITLFront"
 
       val device = new SimpleDevice("ucie-front", Seq("ucie,ucie0"))
 
@@ -214,9 +213,6 @@ class UCITLFront(
         hasBCE = false,
       )
 
-      println(s"tlParams.dataWidth: ${tlParams.dataWidth}")
-      println(s"tlBundleParams.dataWidth: ${tlBundleParams.dataBits}")
-
       val client_tl = clientNode.out(0)._1
       val client_edge = clientNode.out(0)._2
       val manager_tl = managerNode.in(0)._1
@@ -225,10 +221,6 @@ class UCITLFront(
       val clientParams = client_edge.bundle
       val managerParams = manager_edge.bundle
       val mergedParams = clientParams.union(managerParams).union(tlBundleParams)
-
-      println("KIWI")
-      println(managerParams)
-      println(tlBundleParams)
 
       require(
         mergedParams.echoFields.isEmpty,
