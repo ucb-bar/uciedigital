@@ -47,10 +47,6 @@ class LogicalPhy(
   }
 
   if (afeParams.STANDALONE) {
-    trainingModule.io.mainbandFSMIO.pllLock <> io.mbAfe.get.pllLock
-  } else { trainingModule.io.mainbandFSMIO.pllLock := 0.U }
-  trainingModule.io.sidebandFSMIO.pllLock <> io.sbAfe.pllLock
-  if (afeParams.STANDALONE) {
     trainingModule.io.mainbandFSMIO.rxEn <> io.mbAfe.get.rxEn
   }
   trainingModule.io.sidebandFSMIO.rxEn <> io.sbAfe.rxEn

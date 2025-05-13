@@ -15,6 +15,7 @@ class TrainingOperation(afeParams: AfeParams, maxPatternCount: Int)
   val patternUICount = Input(UInt(maxPatternCountWidth.W))
   val outputValid = Output(Bool())
   val errorCounts = Output(Vec(afeParams.mbLanes, UInt(maxPatternCountWidth.W)))
+  val pllLockTrigger = Flipped(new RegisterRWIO(Bool()))
   val triggerNew = Flipped(new RegisterRWIO(Bool()))
   val triggerExit = Flipped(new RegisterRWIO(Bool()))
 }
@@ -64,14 +65,19 @@ class MBTrainer(
   io.sbMsgWrapperReset := false.B
   val triggerNew = io.trainingOperationIO.triggerNew.read
   val triggerExit = io.trainingOperationIO.triggerExit.read
+  val pllLockTrigger = io.trainingOperationIO.pllLockTrigger.read
 
   io.trainingOperationIO.triggerExit.write.noenq()
   io.trainingOperationIO.triggerNew.write.noenq()
+  io.trainingOperationIO.pllLockTrigger.write.noenq()
   when(triggerNew) {
     io.trainingOperationIO.triggerNew.write.enq(false.B)
   }
   when(triggerExit) {
     io.trainingOperationIO.triggerExit.write.enq(false.B)
+  }
+  when(pllLockTrigger) {
+    io.trainingOperationIO.pllLockTrigger.write.enq(false.B)
   }
 
   when(triggerNew) {

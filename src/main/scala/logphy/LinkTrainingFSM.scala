@@ -33,14 +33,12 @@ class SidebandFSMIO(
   val rxMode = Input(RXTXMode())
   val txMode = Input(RXTXMode())
   val rxEn = Input(Bool())
-  val pllLock = Output(Bool())
 }
 
 class MainbandFSMIO(
     afeParams: AfeParams,
 ) extends Bundle {
   val rxEn = Input(Bool())
-  val pllLock = Output(Bool())
   val txFreqSel = Input(SpeedMode())
   val mainbandIO = new MainbandIO(afeParams)
 }
@@ -209,6 +207,12 @@ class LinkTrainingFSM(
     activeSubState := ActiveSubState.IDLE
   }
 
+  val pllLockTrigger = io.trainingOperationIO.pllLockTrigger.read
+  io.trainingOperationIO.pllLockTrigger.write.noenq()
+  when(pllLockTrigger) {
+    io.trainingOperationIO.pllLockTrigger.write.enq(false.B)
+  }
+
   switch(currentState) {
     is(LinkTrainingState.reset) {
       io.mainbandFSMIO.rxEn := false.B
@@ -219,7 +223,7 @@ class LinkTrainingFSM(
       )
       switch(resetSubState) {
         is(ResetSubState.INIT) {
-          when(io.mainbandFSMIO.pllLock && io.sidebandFSMIO.pllLock) {
+          when(pllLockTrigger) {
             io.mainbandFSMIO.txFreqSel := SpeedMode.speed4
             resetSubState := ResetSubState.FREQ_SEL_CYC_WAIT
             resetFreqCtrValue := true.B
@@ -232,7 +236,7 @@ class LinkTrainingFSM(
         }
         is(ResetSubState.FREQ_SEL_LOCK_WAIT) {
           when(
-            io.mainbandFSMIO.pllLock && io.sidebandFSMIO.pllLock,
+            pllLockTrigger
             /** TODO: what is "Local SoC/Firmware not keeping the Physical Layer
               * in RESET"
               */
