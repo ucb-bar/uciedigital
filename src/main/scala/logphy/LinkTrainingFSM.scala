@@ -221,30 +221,8 @@ class LinkTrainingFSM(
         (1 until linkTrainingParams.pllWaitTime),
         reset = resetFreqCtrValue,
       )
-      switch(resetSubState) {
-        is(ResetSubState.INIT) {
-          when(pllLockTrigger) {
-            io.mainbandFSMIO.txFreqSel := SpeedMode.speed4
-            resetSubState := ResetSubState.FREQ_SEL_CYC_WAIT
-            resetFreqCtrValue := true.B
-          }
-        }
-        is(ResetSubState.FREQ_SEL_CYC_WAIT) {
-          when(freqSelCtrValue === (linkTrainingParams.pllWaitTime - 1).U) {
-            resetSubState := ResetSubState.FREQ_SEL_LOCK_WAIT
-          }
-        }
-        is(ResetSubState.FREQ_SEL_LOCK_WAIT) {
-          when(
-            pllLockTrigger
-            /** TODO: what is "Local SoC/Firmware not keeping the Physical Layer
-              * in RESET"
-              */
-          ) {
-            nextState := LinkTrainingState.sbInit
-          }
-        }
-
+      when (pllLockTrigger) {
+        nextState := LinkTrainingState.sbInit
       }
     }
     is(LinkTrainingState.sbInit) {
@@ -376,8 +354,7 @@ class LinkTrainingFSM(
         nextState := Mux(
           mbInit.io.error,
           LinkTrainingState.linkError,
-          if (afeParams.STANDALONE) { LinkTrainingState.linkInit }
-          else { LinkTrainingState.mbTrain },
+          LinkTrainingState.linkInit,
         )
       }
     }
