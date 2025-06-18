@@ -111,7 +111,7 @@ class AfeLoopbackTest extends AnyFlatSpec with ChiselScalatestTester {
   implicit val p: Parameters = Parameters.empty
   it should "finish request and response before timeout" in {
     test(new AfeTLTestHarness()).withAnnotations(
-      Seq(VcsBackendAnnotation, WriteFsdbAnnotation),
+      Seq(VcsBackendAnnotation, WriteVcdAnnotation),
     ) { c => // .withAnnotations(Seq(VcsBackendAnnotation, WriteVcdAnnotation))
 
       println("start Afe Loopback Test")

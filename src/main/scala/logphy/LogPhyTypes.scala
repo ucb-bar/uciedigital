@@ -111,8 +111,6 @@ class MainbandLaneDataValid(afeParams: AfeParams) extends Bundle {
 class MainbandLaneIOWithValid(afeParams: AfeParams) extends Bundle {
   val tx = Decoupled(new MainbandLaneDataValid(afeParams))
   val rx = Flipped(Decoupled(new MainbandLaneDataValid(afeParams)))
-  val txRst = Output(Bool())
-  val rxRst = Output(Bool())
 }
 
 class MainbandLaneIOWithFifoIO(

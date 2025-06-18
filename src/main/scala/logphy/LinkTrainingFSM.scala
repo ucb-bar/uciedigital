@@ -221,7 +221,8 @@ class LinkTrainingFSM(
         (1 until linkTrainingParams.pllWaitTime),
         reset = resetFreqCtrValue,
       )
-      when (pllLockTrigger) {
+      io.mainbandFSMIO.txFreqSel := SpeedMode.speed4
+      when (if (afeParams.STANDALONE) { true.B } else { pllLockTrigger }) {
         nextState := LinkTrainingState.sbInit
       }
     }

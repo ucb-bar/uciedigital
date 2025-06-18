@@ -115,12 +115,10 @@ class LogicalPhy(
     io.phyAfe.get.tx <> lanes.io.mainbandLaneIO.txData.map(f => {
       val x = Wire(chiselTypeOf(io.phyAfe.get.tx.bits))
       x.data := f
-      x.valid := Vec.Lit(Seq.fill(afeParams.mbSerializerRatio)(true.B): _*)
+      x.valid := VecInit((0 until afeParams.mbSerializerRatio/8).flatMap(_ => Seq.fill(4)(true.B) ++ Seq.fill(4)(false.B)))
       x
     })
     io.phyAfe.get.rx.map(_.data) <> lanes.io.mainbandLaneIO.rxData
-    io.phyAfe.get.rxRst := false.B
-    io.phyAfe.get.txRst := false.B
   }
 
   /** Connect RDI to Mainband IO */

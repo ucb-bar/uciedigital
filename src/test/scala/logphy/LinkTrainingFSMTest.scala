@@ -117,19 +117,12 @@ class LinkTrainingFSMTest extends AnyFlatSpec with ChiselScalatestTester {
     c.io.currentState.expect(LinkTrainingState.reset)
     c.io.mainbandFSMIO.txFreqSel.expect(SpeedMode.speed4)
     c.clock.step()
-    c.io.mainbandFSMIO.pllLock.poke(true)
-    c.io.sidebandFSMIO.pllLock.poke(true)
-
     for (_ <- 0 until 30) {
       c.io.currentState.expect(LinkTrainingState.reset)
       c.io.mainbandFSMIO.txFreqSel.expect(SpeedMode.speed4)
       c.clock.step()
-      c.io.mainbandFSMIO.pllLock.poke(false)
-      c.io.sidebandFSMIO.pllLock.poke(false)
     }
 
-    c.io.mainbandFSMIO.pllLock.poke(true)
-    c.io.sidebandFSMIO.pllLock.poke(true)
     c.clock.step()
   }
 
