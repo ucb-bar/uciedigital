@@ -472,10 +472,10 @@ class UCITLFront(
         // rxTLPayload.denied  := uciRxPayload.header2.denied
         // rxTLPayload.corrupt := uciRxPayload.header2.corrupt
         rxTLPayload.data := Cat(
-          uciRxPayload.data(0),
-          uciRxPayload.data(1),
-          uciRxPayload.data(2),
           uciRxPayload.data(3),
+          uciRxPayload.data(2),
+          uciRxPayload.data(1),
+          uciRxPayload.data(0),
         )
         rxTLPayload.msgType := uciRxPayload.cmd.msgType
       }
