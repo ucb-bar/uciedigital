@@ -13,28 +13,31 @@ class RdiDataMapperTest extends AnyFlatSpec with ChiselScalatestTester {
   behavior of "rdi data mapper"
   it should "correctly output rx lane data" in {
     test(new RdiDataMapper(rdiParams, afeParams)) { c =>
-      val data = Vec.Lit(
+      val data = Seq(
         "h1234_5678_9abc_def0_0fed_cba9_8765_4321_1111_2222_3333_4444_5555_6666_7777_8888".U,
         "h2222_2222_3333_4444_5555_6666_8888_8888_2234_5688_9abc_def0_0fed_cba9_8865_4322".U,
         "h1244_6678_9abc_def0_0fed_cba9_8766_4421_1111_2222_4444_4444_6666_6666_7777_8888".U,
         "h1111_3333_3333_4444_5555_6666_7777_8888_1334_5678_9aac_def0_0fed_caa9_8765_4331".U,
       )
-      val dataUInt =
-        "h1234_5678_9abc_def0_0fed_cba9_8765_4321_1111_2222_3333_4444_5555_6666_7777_8888_2222_2222_3333_4444_5555_6666_8888_8888_2234_5688_9abc_def0_0fed_cba9_8865_4322_1244_6678_9abc_def0_0fed_cba9_8766_4421_1111_2222_4444_4444_6666_6666_7777_8888_1111_3333_3333_4444_5555_6666_7777_8888_1334_5678_9aac_def0_0fed_caa9_8765_4331".U
-      c.io.mainbandLaneIO.rxData.initSource()
-      c.io.mainbandLaneIO.rxData.setSourceClock(c.clock)
+      val dataUInt = ("h" +
+        "1111_3333_3333_4444_5555_6666_7777_8888_1334_5678_9aac_def0_0fed_caa9_8765_4331" +
+        "1244_6678_9abc_def0_0fed_cba9_8766_4421_1111_2222_4444_4444_6666_6666_7777_8888" +
+        "2222_2222_3333_4444_5555_6666_8888_8888_2234_5688_9abc_def0_0fed_cba9_8865_4322" +
+        "1234_5678_9abc_def0_0fed_cba9_8765_4321_1111_2222_3333_4444_5555_6666_7777_8888").U
 
-      c.io.mainbandLaneIO.rxData.valid.poke(false)
+      c.io.mainbandIO.rxData.initSource()
+      c.io.mainbandIO.rxData.setSourceClock(c.clock)
+
+      c.io.mainbandIO.rxData.valid.poke(false)
       c.clock.step()
       for (i: Int <- 0 until 4) {
-        c.io.mainbandLaneIO.rxData.valid.poke(false)
         for (_: Int <- 0 until 10) {
           c.io.rdi.plData.valid.expect(false)
           c.clock.step()
         }
-        c.io.mainbandLaneIO.rxData.enqueueNow(data(i))
+        c.io.mainbandIO.rxData.enqueueNow(data(i))
       }
-      c.io.rdi.plData.valid.expect(true)
+      c.io.rdi.plData.valid.expect(true.B)
       c.io.rdi.plData.bits.expect(dataUInt)
       c.clock.step()
       for (_ <- 0 until 10) {
@@ -46,19 +49,22 @@ class RdiDataMapperTest extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "correctly output tx lane data" in {
     test(new RdiDataMapper(rdiParams, afeParams)) { c =>
-      val data = Vec.Lit(
+      val data = Seq(
         "h1234_5678_9abc_def0_0fed_cba9_8765_4321_1111_2222_3333_4444_5555_6666_7777_8888".U,
         "h2222_2222_3333_4444_5555_6666_8888_8888_2234_5688_9abc_def0_0fed_cba9_8865_4322".U,
         "h1244_6678_9abc_def0_0fed_cba9_8766_4421_1111_2222_4444_4444_6666_6666_7777_8888".U,
         "h1111_3333_3333_4444_5555_6666_7777_8888_1334_5678_9aac_def0_0fed_caa9_8765_4331".U,
       )
-      val dataUInt =
-        "h1234_5678_9abc_def0_0fed_cba9_8765_4321_1111_2222_3333_4444_5555_6666_7777_8888_2222_2222_3333_4444_5555_6666_8888_8888_2234_5688_9abc_def0_0fed_cba9_8865_4322_1244_6678_9abc_def0_0fed_cba9_8766_4421_1111_2222_4444_4444_6666_6666_7777_8888_1111_3333_3333_4444_5555_6666_7777_8888_1334_5678_9aac_def0_0fed_caa9_8765_4331".U
+      val dataUInt = ("h" +
+        "1111_3333_3333_4444_5555_6666_7777_8888_1334_5678_9aac_def0_0fed_caa9_8765_4331" +
+        "1244_6678_9abc_def0_0fed_cba9_8766_4421_1111_2222_4444_4444_6666_6666_7777_8888" +
+        "2222_2222_3333_4444_5555_6666_8888_8888_2234_5688_9abc_def0_0fed_cba9_8865_4322" +
+        "1234_5678_9abc_def0_0fed_cba9_8765_4321_1111_2222_3333_4444_5555_6666_7777_8888").U
 
-      c.io.mainbandLaneIO.txData.initSink()
-      c.io.mainbandLaneIO.txData.setSinkClock(c.clock)
+      c.io.mainbandIO.txData.initSink()
+      c.io.mainbandIO.txData.setSinkClock(c.clock)
 
-      c.io.mainbandLaneIO.txData.valid.expect(false.B)
+      c.io.mainbandIO.txData.valid.expect(false.B)
       c.io.rdi.lpData.valid.poke(false.B)
       c.io.rdi.lpData.irdy.expect(false.B)
       c.io.rdi.lpData.ready.expect(true.B)
@@ -73,16 +79,16 @@ class RdiDataMapperTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.rdi.lpData.valid.poke(false.B)
 
       for (i: Int <- 0 until 4) {
-        c.io.mainbandLaneIO.txData.ready.poke(false)
+        c.io.mainbandIO.txData.ready.poke(false)
         for (_: Int <- 0 until 10) {
           c.io.rdi.lpData.ready.expect(false)
           c.clock.step()
         }
-        c.io.mainbandLaneIO.txData.expectDequeueNow(data(i))
+        c.io.mainbandIO.txData.expectDequeueNow(data(i))
       }
 
       for (_ <- 0 until 10) {
-        c.io.mainbandLaneIO.txData.valid.expect(false)
+        c.io.mainbandIO.txData.valid.expect(false)
         c.io.rdi.lpData.ready.expect(true)
         c.clock.step()
       }

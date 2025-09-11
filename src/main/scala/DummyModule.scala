@@ -8,5 +8,6 @@ class DummyModule extends Module {
     val b = Output(Bool())
   })
 
+
   io.b := ~io.a
 }

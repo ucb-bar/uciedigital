@@ -3,11 +3,13 @@ package logphy
 
 import chisel3._
 import chisel3.util._
+import freechips.rocketchip.regmapper.{RegField, RegFieldDesc, RegReadFn, RegWriteFn}
 import sideband.SidebandParams
 import interfaces._
 
 object LinkTrainingState extends ChiselEnum {
-  val reset, sbInit, mbInit, linkInit, active, linkError, retrain = Value
+  val reset, sbInit, mbInit, mbTrain, linkInit, active, linkError, retrain =
+    Value
 }
 
 object MsgSource extends ChiselEnum {
@@ -28,10 +30,15 @@ class SBReqMsg extends Bundle {
   val msg = UInt(128.W)
 }
 
+object MessageRequestType extends ChiselEnum {
+  val EXCHANGE, RECEIVE, SEND = Value
+}
+
 class MessageRequest extends Bundle {
   val msg = UInt(128.W)
   val timeoutCycles = UInt(64.W)
-  // val msgTypeHasData = Bool()
+  val reqType = MessageRequestType()
+  val repeat = Bool()
 }
 
 class MessageRequestStatus extends Bundle {
@@ -47,7 +54,10 @@ object ClockModeParam extends ChiselEnum {
 }
 
 object TransmitPattern extends ChiselEnum {
-  val CLOCK_64_LOW_32 = Value(0.U)
+  val LFSR = Value(0.U)
+  val PER_LANE_ID = Value(1.U)
+  val VALTRAIN = Value(2.U)
+  val CLOCK = Value(3.U)
 }
 
 class SBIO(params: AfeParams) extends Bundle {
@@ -68,11 +78,9 @@ class SBIO(params: AfeParams) extends Bundle {
   val rxData = Flipped(Decoupled(Bits(params.sbSerializerRatio.W)))
 }
 
-class MainbandIO(
+class MainbandLaneIO(
     afeParams: AfeParams,
 ) extends Bundle {
-
-  val fifoParams = Input(new FifoParams())
 
   /** Data to transmit on the mainband.
     *
@@ -95,7 +103,25 @@ class MainbandIO(
   )
 }
 
-class MainbandLaneIO(
+class MainbandLaneDataValid(afeParams: AfeParams) extends Bundle {
+  val data = Vec(afeParams.mbLanes, Bits(afeParams.mbSerializerRatio.W))
+  val valid = Vec(afeParams.mbSerializerRatio, Bool())
+}
+
+class MainbandLaneIOWithValid(afeParams: AfeParams) extends Bundle {
+  val tx = Decoupled(new MainbandLaneDataValid(afeParams))
+  val rx = Flipped(Decoupled(new MainbandLaneDataValid(afeParams)))
+}
+
+class MainbandLaneIOWithFifoIO(
+    afeParams: AfeParams,
+) extends MainbandLaneIO(afeParams) {
+
+  val fifoParams = Input(new FifoParams())
+
+}
+
+class MainbandIO(
     afeParams: AfeParams,
 ) extends Bundle {
 
@@ -106,7 +132,7 @@ class MainbandLaneIO(
   )
 
   val rxData =
-    Valid(Bits((afeParams.mbLanes * afeParams.mbSerializerRatio).W))
+    Decoupled(Bits((afeParams.mbLanes * afeParams.mbSerializerRatio).W))
 }
 
 class SidebandLaneIO(
@@ -121,4 +147,38 @@ class SidebandLaneIO(
 
   val rxData =
     Decoupled(Bits(sbParams.sbNodeMsgWidth.W))
+}
+
+class RegisterRWIO[T <: Data](gen: T) extends Bundle {
+  val write = Flipped(Decoupled(gen))
+  val read = Output(gen)
+
+  def regWrite: RegWriteFn = RegWriteFn((valid, data) => {
+    write.valid := valid
+    write.bits := data.asTypeOf(gen)
+    write.ready
+  })
+
+  def regRead: RegReadFn = RegReadFn(read.asUInt)
+
+  def getDataWidth = gen.getWidth
+
+  def regField(desc: RegFieldDesc): RegField = {
+    RegField(gen.getWidth, regRead, regWrite, desc)
+  }
+}
+
+class RegisterRW[T <: Data](val init: T, name: String) {
+  val reg: T = RegInit(init).suggestName(name)
+
+  def io = new RegisterRWIO(chiselTypeOf(init))
+
+  def connect(io: RegisterRWIO[T]): Unit = {
+    io.write.deq()
+    when(io.write.fire) {
+      reg := io.write.bits
+    }
+
+    io.read := reg
+  }
 }

@@ -18,11 +18,13 @@ case class MBTrainingParams(
 class MBInitFSM(
     linkTrainingParams: LinkTrainingParams,
     afeParams: AfeParams,
+    maxPatternCount: Int,
 ) extends Module {
 
   val io = IO(new Bundle {
     val sbTrainIO = Flipped(new SBMsgWrapperTrainIO)
-    val patternGeneratorIO = Flipped(new PatternGeneratorIO)
+    val patternGeneratorIO =
+      Flipped(new PatternGeneratorIO(afeParams, maxPatternCount))
     val transition = Output(Bool())
     val error = Output(Bool())
   })
@@ -54,7 +56,7 @@ class MBInitFSM(
   io.sbTrainIO.msgReq.noenq()
   io.sbTrainIO.msgReqStatus.nodeq()
   io.patternGeneratorIO.transmitReq.noenq()
-  io.patternGeneratorIO.transmitPatternStatus.nodeq()
+  io.patternGeneratorIO.resp.nodeq()
 
   /** Initialize params */
   private val voltageSwing = RegInit(
@@ -109,15 +111,14 @@ class MBInitFSM(
           if (req) SBM.MBINIT_PARAM_CONFIG_REQ
           else SBM.MBINIT_PARAM_CONFIG_RESP,
           "PHY",
-          false,
+          remote = true,
           "PHY",
           data,
         )
+        msgReq.repeat := false.B
 
-        // msgReq.msgTypeHasData := true.B
         msgReq.timeoutCycles := (0.008 * sbClockFreq).toInt.U
-        // msgReq.reqType := (if (req) MessageRequestType.MSG_REQ
-        //                    else MessageRequestType.MSG_RESP)
+        msgReq.reqType := MessageRequestType.EXCHANGE
         msgReq
       }
 
