@@ -355,7 +355,9 @@ class LinkTrainingFSM(
         nextState := Mux(
           mbInit.io.error,
           LinkTrainingState.linkError,
-          LinkTrainingState.linkInit,
+          // TODO: Transition to mbTrain in non-STANDALONE mode
+          // without getting stuck.
+          LinkTrainingState.linkInit, 
         )
       }
     }
