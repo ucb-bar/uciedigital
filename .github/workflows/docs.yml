@@ -1,9 +1,6 @@
 name: Docs
 
 on:
-  push:
-    branches:
-      - main
 
 concurrency:
   group: pages
