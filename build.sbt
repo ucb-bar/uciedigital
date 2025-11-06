@@ -1,4 +1,4 @@
-name := "ucie"
+name := "uciedigital"
 
 version := "0.1"
 
