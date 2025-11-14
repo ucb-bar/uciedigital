@@ -14,6 +14,8 @@ project/plugins/project/
 .cache
 .lib/
 
+generatedVerilog/
+
 ### SBT Patch ###
 .bsp/
 
