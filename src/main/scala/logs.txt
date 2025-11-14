@@ -1,0 +1,24 @@
+log.txt
+
++ TODOs
+  - Remove redundant params in SidebandParams and keep them in AfeParams
+    Redundant signals sbWidth == sbLinkWidth
+    - sbNodeMsgWidth seems useless because there's no serializer/deserialzer in between modules,
+      so that value will always be 128. 
+        - Probably have an assert that enforces 128 and if there's a change say there's no serdes
+          between layers, so can't do it.
+
+
++ DESIGN LOG
+  SidebandLinkSerdes
+  - When deserializer times out, do we going into a link error and trigger a reset with software?
+    According to spec, sideband should have a BER of 1e-27 or better. Can likely afford a full reset
+    instead of a independent SB link serdes reset.
+
+
++ VERIFICATION LOG
+  SidebandLinkSerdes
+    - Need to verify the reset functionality fully of serializer and deserializer
+    Currently resets correctly but edge case testing hasn't been done such as:
+      - When we reset the sideband serdes independently of full UCIe reset and there is a message 
+        coming in. Not sure if this is an edge case that will happen ever.
