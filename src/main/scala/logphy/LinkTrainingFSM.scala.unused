@@ -1,5 +1,4 @@
-package edu.berkeley.cs.ucie.digital
-package logphy
+package edu.berkeley.cs.uciedigital.logphy
 
 import sideband._
 import chisel3._

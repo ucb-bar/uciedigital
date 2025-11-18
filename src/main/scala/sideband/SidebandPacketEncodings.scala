@@ -3,8 +3,7 @@
         Contains all the sideband message encodings for each field
 */
 
-package edu.berkeley.cs.ucie.digital
-package sideband
+package edu.berkeley.cs.uciedigital.sideband
 
 import chisel3._
 

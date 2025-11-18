@@ -10,8 +10,7 @@
     stack runs at the freqency required by the mainband data rate.  
 */
 
-package edu.berkeley.cs.ucie.digital
-package sideband
+package edu.berkeley.cs.uciedigital.sideband
 
 import chisel3._
 import circt.stage.ChiselStage

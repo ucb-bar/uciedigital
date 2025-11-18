@@ -1,5 +1,4 @@
-package edu.berkeley.cs.ucie.digital
-package logphy
+package edu.berkeley.cs.uciedigital.logphy
 
 import interfaces._
 import sideband._
