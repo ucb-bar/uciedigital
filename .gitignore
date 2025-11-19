@@ -13,6 +13,7 @@ project/plugins/project/
 .history
 .cache
 .lib/
+project/
 
 generatedVerilog/
 
@@ -25,6 +26,7 @@ generatedVerilog/
 project/**/metals.sbt
 
 #### END gitignore.io
+generatedVerilog/
 
 ### Chiseltest ###
 test_run_dir/
