@@ -1,6 +1,9 @@
 /*
     Description:
         Contains all the sideband message encodings for each field
+
+    TODO: This can be combined into SidebandMessage.scala. Be sure to change the serializer
+    and deserializer RTL. SidebandMessage.scala becomes SidebandPacketEncodings.scala
 */
 
 package edu.berkeley.cs.uciedigital.sideband

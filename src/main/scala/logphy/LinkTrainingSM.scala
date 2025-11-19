@@ -1,6 +1,7 @@
 package edu.berkeley.cs.uciedigital.logphy
 
-import sideband._
+import edu.berkeley.cs.uciedigital.sideband._
+import edu.berkeley.cs.uciedigital.interfaces._
 import chisel3._
 import chisel3.util._
 
@@ -8,7 +9,7 @@ import chisel3.util._
 case class AfeParams(
   sbSerializerRatio: Int = 1,
   sbWidth: Int = 1,
-  mbSerializerRatio: Int = 16,
+  mbSerializerRatio: Int = 32,
   mbLanes: Int = 16,
   STANDALONE: Boolean = true
 )
@@ -30,7 +31,6 @@ object TimeoutConstants {
   }
 }
 
-
 object MBRxTxMode extends ChiselEnum {
   // Either send/receive RAW or process with valid framing
   val RAW, VALID_FRAME = Value
@@ -50,11 +50,11 @@ class SidebandCtrlIO extends Bundle {
 }
 
 class MainbandCtrlIO(afeParams: AfeParams) extends Bundle {
-  val txDataTriState    = Output(Vec(afeParams.mbLanes), Bool())
+  val txDataTriState    = Output(Vec(afeParams.mbLanes, Bool()))
   val txClkTriState     = Output(Bool())
   val txValidTriState   = Output(Bool())
   val txTrackTriState   = Output(Bool())            
-  val rxDataEn          = Output(Vec(afeParams.mbLanes), Bool())
+  val rxDataEn          = Output(Vec(afeParams.mbLanes, Bool()))
   val rxClkEn           = Output(Bool())
   val rxValidEn         = Output(Bool())
   val rxTrackEn         = Output(Bool())
@@ -86,9 +86,9 @@ class MainbandLanes(mbNumLanes: Int, mbSerializerRatio: Int) extends Bundle {
 
 class MainbandLaneIO(afeParams: AfeParams) extends Bundle {
   val tx = Decoupled(
-    new MainbandLanes(afeParams.numLanes, afeParams.mbSerializerRatio))
+    new MainbandLanes(afeParams.mbLanes, afeParams.mbSerializerRatio))
   val rx = Flipped(Decoupled(
-    new MainbandLanes(afeParams.numLanes, afeParams.mbSerializerRatio)))
+    new MainbandLanes(afeParams.mbLanes, afeParams.mbSerializerRatio)))
 }
 
 class SubFsmControlIO extends Bundle {
@@ -104,6 +104,7 @@ object LTState extends ChiselEnum {
   = Value
 }
 
+
 class LinkTrainingSM(sbParams: SidebandParams, afeParams: AfeParams, retryW: Int) extends Module {
 
   // Variables
@@ -113,7 +114,7 @@ class LinkTrainingSM(sbParams: SidebandParams, afeParams: AfeParams, retryW: Int
 
   val io = IO(new Bundle {
     val currentState = Output(LTState())  // Out to logphytop    
-    val retryTrainingAmt = Input(UInt(retryAmtW).W)  // comes from ucie dvsec (controller in logphy)
+    val retryTrainingAmt = Input(UInt(retryAmtW.W))  // comes from ucie dvsec (controller in logphy)
     
     // NOTE: swTrigger from DVSEC regs, rdiTrigger from adapter 
     //       get both signals from logPHY controller
@@ -140,48 +141,44 @@ class LinkTrainingSM(sbParams: SidebandParams, afeParams: AfeParams, retryW: Int
     
   
   val currentState = RegInit(LTState.sRESET)
-  val nextState := WireInit(currentState)
+  val nextState = WireInit(currentState)
   val triggerTraining = Wire(Bool())
-  triggerTraining := io.swTriggerTraining || io.rdiTriggerTraining || io.remoteTriggerTraining
+  
 
 
   // Timeout Logic -- Digital operates with divided mb clock to keep clock crossing at boundaries
   val timeoutMapScala = TimeoutConstants.timeoutMap(mbSerializerRatio, timeoutMs)
   val timeoutWidth = log2Ceil(timeoutMapScala.values.max)
-  val timeoutCounter = RegInit(0.U(timeout_width.W))
+  val timeoutMapChisel: Map[SpeedMode.Type, UInt] = timeoutMapScala.map { case (mode, big) =>
+                                                      mode -> big.U(timeoutWidth.W)
+                                                    }  
+  val timeoutCounter = RegInit(0.U(timeoutWidth.W))
   val timeoutCyclesMax = Wire(UInt(timeoutWidth.W))
   val timeoutCntEn = Wire(Bool())       // disable next cycle
   val timeoutCntReset = Wire(Bool())    // reset next cycle
-  val trainingTimedOut = Wire(Bool())  
+  val trainingTimedout = Wire(Bool())  
   val resetMinWait = RegInit(false.B)    
   val substateTransitioning = Wire(Bool())
 
-  timeoutCntEn := (currentState =/= LTState.sRESET) 
-                && (currentState =/= LTState.sACTIVE)
-                && (currentState =/= LTState.sL1_L2)
-                && (currentState =/= LTState.sTRAINERROR)
+  timeoutCntEn := (currentState =/= LTState.sRESET) &&
+                  (currentState =/= LTState.sACTIVE) &&
+                  (currentState =/= LTState.sL1_L2) &&
+                  (currentState =/= LTState.sTRAINERROR)
 
   substateTransitioning := false.B
   timeoutCntReset := (nextState =/= currentState) || substateTransitioning
-  trainingTimedOut := timeoutCounter === timeoutCyclesMax
+  trainingTimedout := timeoutCounter === timeoutCyclesMax
   
 
   // get correct timeout cycles based on PHY speed
-  timeoutCyclesMax := (timeoutMapScala.values.min - 1).U  // default
-  switch(io.mainbandCtrlIo.freqSel) { 
-    for ((speedMode, numTimeoutCycles) <- timeoutMapScala) {
-      is(speedMode) { timeoutCyclesMax := (numTimeoutCycles - 1).U }
-    }
-  }
-
+  timeoutCyclesMax := MuxLookup(io.mainbandCtrlIo.freqSel, 
+                                (timeoutMapScala.values.min - 1).U)(timeoutMapChisel.toSeq)
   when(timeoutCntReset) {
     timeoutCounter := 0.U
   }.otherwise {
     when(timeoutCntEn){
-      when(timeoutCounter === timeoutCyclesMax) {
-        timeoutCounter := timeoutCyclesMax                
-      }.otherwise {
-        timeoutCounter := timeoutCounter + 1.U
+      when(timeoutCounter =/= timeoutCyclesMax) {
+        timeoutCounter := timeoutCounter + 1.U               
       }
     }
   }
@@ -194,6 +191,21 @@ class LinkTrainingSM(sbParams: SidebandParams, afeParams: AfeParams, retryW: Int
   }
 
 
+  // Remote SBINIT pattern detection in LTState.sRESET only
+  /*
+    If [Management Transport protocol is not supported] OR [the SB_MGMT_UP flag is cleared to
+    0], the SBINIT pattern (two consecutive iterations of 64-UI clock pattern and 32-UI low) is
+    observed on any sideband Receiver clock/data pair
+
+    TODO: Add the conditions for management transport protocol not supported and flag cleared
+          before using this circuit
+  */
+  val sbInitPatternCounter = RegInit(0.U(2.W))
+  val remoteTriggerTraining = Wire(Bool())
+  val sbInitClkPattern = BigInt("5555555555555555", 16).U(64.W) // 0b0101_0101_..._0101
+
+  remoteTriggerTraining := sbInitPatternCounter === 2.U
+
   // Training Retrigger Logic -- TODO: Fix this
   // val prevTrigger = RegInit(false.B)
   // val trainingRetryCounter = RegInit(0.U(retryAmtW.W))
@@ -201,20 +213,18 @@ class LinkTrainingSM(sbParams: SidebandParams, afeParams: AfeParams, retryW: Int
   // val retryCounterEn = Wire(Bool())
   // val retryAmtMax = Reg(UInt(retryAmtW.W))
 
-
-
   // IO connections
-  io.trainingTimedOut := trainingTimedOut
+  io.trainingTimedout := trainingTimedout
 
   io.sidebandCtrlIo.txEn := true.B
   io.sidebandCtrlIo.rxEn := true.B
-  io.sidebandCtrlIo.rxtxMode := SBRxTxMode.RAW
+  io.sidebandCtrlIo.rxTxMode := SBRxTxMode.RAW
   io.sidebandCtrlIo.sbSerDesRst := false.B
 
-  io.mainbandCtrlIo.txDataEn.foreach(_ := false.B)
-  io.mainbandCtrlIo.txClkEn := false.B
-  io.mainbandCtrlIo.txValidEn := false.B
-  io.mainbandCtrlIo.txTrackEn := false.B
+  io.mainbandCtrlIo.txDataTriState.foreach(_ := false.B)
+  io.mainbandCtrlIo.txClkTriState := false.B
+  io.mainbandCtrlIo.txValidTriState := false.B
+  io.mainbandCtrlIo.txTrackTriState := false.B
   io.mainbandCtrlIo.rxDataEn.foreach(_ := false.B)
   io.mainbandCtrlIo.rxClkEn := false.B
   io.mainbandCtrlIo.rxValidEn := false.B
@@ -222,12 +232,17 @@ class LinkTrainingSM(sbParams: SidebandParams, afeParams: AfeParams, retryW: Int
   io.mainbandCtrlIo.freqSel := SpeedMode.speed4
   io.mainbandCtrlIo.rxTxMode := MBRxTxMode.RAW
 
+    // For the ready/valid for the lanes
+  io.sidebandLaneIo.rx.ready := false.B
+
   val pwrGood = io.pwrGood
   val sbPllLock = io.sidebandCtrlIo.sbPllLock
   val mbPllLock = io.mainbandCtrlIo.mbPllLock
-
+  
+  triggerTraining := io.swTriggerTraining || io.rdiTriggerTraining || remoteTriggerTraining
 
   // Substate FSMs
+  // TODO: need to signal reset when LTSM transitions TrainError --> Reset
   val subFsmModuleReset = (reset.asBool || trainingTimedout).asAsyncReset
 
   // SBInit
@@ -251,15 +266,31 @@ class LinkTrainingSM(sbParams: SidebandParams, afeParams: AfeParams, retryW: Int
         Sideband RX is enabled (en == 1)                
         Set Mainband Clock Speed to lowest (4 GT/s)
       */
+      io.sidebandLaneIo.rx.ready := true.B
+      when(io.sidebandLaneIo.rx.valid) {
+        when(io.sidebandLaneIo.rx.bits.data(63,0) === sbInitClkPattern) {
+          when(sbInitPatternCounter =/= 2.U) {
+            sbInitPatternCounter := sbInitPatternCounter + 1.U
+          }
+        }.otherwise { 
+          when(sbInitPatternCounter === 1.U) { // pattern not consecutively seen, so reset counter
+            sbInitPatternCounter := 0.U
+          }
+        }
+      }
+ 
       when(pwrGood && sbPllLock && mbPllLock && resetMinWait && triggerTraining) {
         nextState := LTState.sSBINIT
+        sbInitPatternCounter := 0.U
       }.otherwise {
         nextState := LTState.sRESET
       }
     }
 
     is(LTState.sSBINIT) {        
-      // defaults to sideband and mainband io are set inside the module
+      // SBInit doesn't take mainband ctrl io or lane io, so keep defaults for this state
+      // in here
+
 
       // sbInitModule.io.fsmCtrl.start := true.B
 
