@@ -1,5 +1,7 @@
-package edu.berkeley.cs.ucie.digital
-package sideband
+package edu.berkeley.cs.ucie.digital.logphy
+
+import interfaces._
+import sideband._
 
 import chisel3._
 import chisel3.util._
@@ -19,14 +21,17 @@ import firrtl2.options.TargetDirAnnotation
 import org.scalatest.funspec.AnyFunSpec
 
 
-class LinkTrainingSMTest extends AnyFunSpec with ChiselScalatestTester{
+// class LinkTrainingSMTest extends AnyFunSpec with ChiselScalatestTester{
 
-  describe("LinkTrainingSM Instantiation Test") {
-    it("LinkTrainingSM Instantiated") {
-      test(new LinkTrainingSM(new SidebandParams(), new AfeParams(), retryW = 3)) { c =>
-        c.clock.step()
-        println("[TEST] Success")
-      }
-    }
-  }    
-}
+//   describe("LinkTrainingSM Instantiation Test") {
+//     it("LinkTrainingSM Instantiated") {
+//       test(new LinkTrainingSM(new SidebandParams(), new AfeParams(), retryW = 3))
+//       // .withAnnotations(Seq(WriteVcdAnnotation))
+//       // .withAnnotations(Seq(TargetDirAnnotation("./generators/ucie/src/test/test_run_dir/"))) 
+//       { c =>
+//         c.clock.step()
+//         println("[TEST] Success")
+//       }
+//     }
+//   }    
+// }

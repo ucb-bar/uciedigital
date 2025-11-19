@@ -1,5 +1,4 @@
-package edu.berkeley.cs.ucie.digital
-package sideband
+package edu.berkeley.cs.ucie.digital.sideband
 import chisel3._
 import chisel3.util._
 
