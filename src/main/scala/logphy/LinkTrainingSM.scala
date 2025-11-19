@@ -1,7 +1,7 @@
 package edu.berkeley.cs.uciedigital.logphy
 
-import sideband._
-import interfaces._
+import edu.berkeley.cs.uciedigital.sideband._
+import edu.berkeley.cs.uciedigital.interfaces._
 import chisel3._
 import chisel3.util._
 
