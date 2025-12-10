@@ -51,9 +51,8 @@ module tb_tree_serializer;
     integer i;
 
     initial begin
-        // Dump for GTKWave
-        $dumpfile("tree_serializer_tb.vcd");
-        $dumpvars(0, tb_tree_serializer);
+        $fsdbDumpfile("tree_serializer.fsdb");
+        $fsdbDumpvars(0, tb_tree_serializer);
 
         // Wait for reset deassertion
         @(negedge rst);

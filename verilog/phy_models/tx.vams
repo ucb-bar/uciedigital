@@ -1,11 +1,11 @@
-module serializer #(
+module tree_serializer #(
     parameter integer K = 3,              // log2(#inputs)
     parameter integer M = (1 << K)        // number of inputs
 )(
     input  logic          clk,            // serialization clock
     input  logic          rst,            // synchronous reset
     input  logic [M-1:0]  din,            // parallel inputs
-    output logic          dout,           // serialized output
+    output reg          dout,           // serialized output
     output logic [$clog2(M)-1:0] idx      // current index
 );
 
