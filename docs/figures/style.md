@@ -1,0 +1,5 @@
+- 2pt stroke width
+- Make layers for different types of objects
+- avoid using groups when possible, use symbols (figure out how to use symbols faster)
+- find way to have stroke presents that make sense
+- specific gray for grayed out components
