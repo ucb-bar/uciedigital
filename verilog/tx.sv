@@ -173,8 +173,6 @@ module tb_ser;
 
     // Test stimulus
     initial begin
-        $fsdbDumpfile("tb_ser.fsdb");
-        $fsdbDumpvars(0, tb_ser);
         $display("OUTPUT: clk\tdin\tdout");
         $monitor("OUTPUT: %b\t%h\t%b\t%b", clk, din, dout, rstb);
 
