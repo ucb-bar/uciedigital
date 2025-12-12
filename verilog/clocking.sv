@@ -1,8 +1,6 @@
 module clkdiv #(
     parameter integer STAGES = 4,
-    parameter real T_CLKQ = 30.0, // Clock-to-q time in ps.
-    parameter real T_SETUP = 20.0,   // Setup time in ps
-    parameter real T_HOLD  = 20.0   // Hold time in ps
+    parameter real T_CLKQ = 5.0, // Clock-to-q time in ps.
 )(
     input logic clkin,
     output logic [STAGES:0] clkout,

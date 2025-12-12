@@ -11,10 +11,10 @@ module pos_dff #(
 );
 
     specify
-        specparam T_SETUP_SPEC = 5.0;  // Setup time in ps
-        specparam T_HOLD_SPEC = 2.0;  // Hold time in ps
-        $setup(d, posedge clk, T_SETUP_SPEC);
-        $hold(posedge clk, d, T_HOLD_SPEC);
+        specparam T_SETUP = 5.0;  // Setup time in ps
+        specparam T_HOLD = 2.0;  // Hold time in ps
+        $setup(d, posedge clk, T_SETUP);
+        $hold(posedge clk, d, T_HOLD);
     endspecify
 
     // TODO: design reset distribution/async reset?
@@ -214,7 +214,7 @@ module tb_latch;
 endmodule
 
 module mux #(
-    parameter real DELAY = 50.0 // Delay in ps.
+    parameter real DELAY = 5.0 // Delay in ps.
 )(
     input logic sel_a,
     input logic a,
