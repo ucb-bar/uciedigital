@@ -8,6 +8,7 @@ use tracing::info;
 
 pub mod clocking;
 pub mod primitives;
+pub mod rx;
 pub mod tx;
 
 pub const VERILOG_SRC_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../verilog");
