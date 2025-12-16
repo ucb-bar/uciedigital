@@ -46,7 +46,7 @@ pub fn simulate(
             "-timescale",
             "1ps/1ps",
             "-spectre_args",
-            "+preset=mx +mt=32",
+            "+preset=mx +mt=32 -ahdllint=warn",
             "-top",
             tb,
         ])

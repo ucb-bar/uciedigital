@@ -210,10 +210,7 @@ module sw(p, n, s);
     electrical p, n;
 
     analog begin
-	if (s)
-	    V(p, n) <+ I(p, n) * R_ON;
-	else
-	    I(p, n) <+ 0.0;
+	    V(p, n) <+ I(p, n) * R_ON * limexp(20*(1 - transition(s, 10e-12)));
     end
 endmodule
 
