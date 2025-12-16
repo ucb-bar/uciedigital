@@ -96,13 +96,13 @@ module tb_rx_afe;
         din_dig = 0;
         $display("waiting for a_pc");
         @(negedge a_pc);
-        #100;
+        #300;
 
 
         // Apply random inputs
         for (i = 0; i < CYCLES; i=i+1) begin
             din_dig = $random % 2;
-            #100;
+            #300;
             $display("din = %b, dout %b", din_dig, dout);
             if (dout != din_dig)
                 $display("Error: dout does not match din");

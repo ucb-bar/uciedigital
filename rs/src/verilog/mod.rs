@@ -4,7 +4,6 @@ use std::{
 };
 
 use anyhow::{Context, Result, anyhow, bail};
-use tracing::info;
 
 pub mod clocking;
 pub mod primitives;
