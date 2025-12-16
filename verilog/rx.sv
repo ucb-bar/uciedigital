@@ -181,15 +181,13 @@ module tb_des;
     initial begin
         @(posedge |dout);
         @(posedge desclk[STAGES-1]);
-        #(DOUT_DELAY)
-        for (integer i = 0; i < 2**STAGES; i++) begin
+        for (integer i = 2**STAGES - 1; i >= 0; i--) begin
             if (dout[i]) shift = i + 1;
         end
         prev = dout >> shift;
         
         for (integer i = 0; i < CYCLES; i++) begin
             @(posedge desclk[STAGES-1]);
-            #(DOUT_DELAY)
             next = prev | (dout << (2**STAGES - shift));
             prev = dout >> shift;
             expected = expected_q.pop_front();
