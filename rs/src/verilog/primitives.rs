@@ -50,6 +50,7 @@ mod tests {
             2,
             "output should have 2 violations"
         );
+        // No need to check for $error messages in SV since they will cause a non-zero exit code.
         Ok(())
     }
 
@@ -104,6 +105,7 @@ mod tests {
             4,
             "output should have 4 violations"
         );
+        // No need to check for $error messages in SV since they will cause a non-zero exit code.
         Ok(())
     }
 
