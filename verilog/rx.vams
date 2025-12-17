@@ -53,7 +53,7 @@ module rx_afe_tb;
         V(vdd) <+ `VDD;
         V(vss) <+ 0;
         V(vref) <+ `RX_V_HIGH / 2;
-        V(din) <+ din_dig * `RX_V_HIGH;
+        V(din) <+ transition(din_dig, 0, `T_RISE_FALL_DEFAULT * 1p) * `RX_V_HIGH;
     end
 
     initial begin

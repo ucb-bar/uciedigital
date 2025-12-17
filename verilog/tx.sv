@@ -14,7 +14,7 @@ module txdata_tile (
 );
 
     logic clkin;
-    dcdl dl(.clk_in(intf.clkp), .dl_ctrl(intf.dl_ctrl), .clk_out(clkin));
+    dcdl_simple dl(.clk_in(intf.clkp), .dl_ctrl(intf.dl_ctrl), .clk_out(clkin));
 
     // TODO: ensure serializer samples async queue correctly
     // for different delay line codes.
@@ -72,6 +72,16 @@ module txdriver_tile (
     );
 
 endmodule
+
+module dcdl_simple(
+    input logic clk_in,
+    input logic [`DCDL_CTRL_BITWIDTH-1:0] dl_ctrl,
+    output logic clk_out
+);
+
+    assign #(dl_ctrl * `DCDL_DELAY_STEP + `DCDL_DELAY_OFS) clk_out = clk_in;
+endmodule
+
 
 module ser21 (
     input logic [1:0] din,
