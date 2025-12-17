@@ -164,7 +164,7 @@ module tree_ser #(
 endmodule
 
 
-module tb_ser;
+module ser_tb;
 
     parameter STAGES = `SERDES_STAGES;          // width of serializer
     parameter CYCLES = 16;    // number of test cycles
@@ -247,6 +247,6 @@ module tb_ser;
 
 endmodule
 
-module tb_ser21;
-    tb_ser #(.STAGES(1)) inner ();
+module ser21_tb;
+    ser_tb #(.STAGES(1)) inner ();
 endmodule

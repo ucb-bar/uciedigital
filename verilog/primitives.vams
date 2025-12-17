@@ -23,7 +23,7 @@ module comparator(a, b, out);
     end
 endmodule
 
-module tb_rdac;
+module rdac_tb;
 
     // Parameters
     localparam integer SEL_MAX = (1 << `RDAC_SEL_BITS) - 1;
@@ -119,7 +119,7 @@ module inv(a, o, vdd, vss);
     end
 endmodule
 
-module tb_inv_selfbias;
+module inv_selfbias_tb;
     electrical o, vdd, vss;
     inv dut(.a(o), .o(o), .vdd(vdd), .vss(vss));
     real out;
@@ -163,7 +163,7 @@ module sw(p, n, s);
     end
 endmodule
 
-module tb_inv_discharge_cap;
+module inv_discharge_cap_tb;
     electrical a, o, vdd, vss;
     reg pc;
 

@@ -49,7 +49,7 @@ rxdata_tile rxtrk_tile(.intf(intf.rxtrk));
 
 endmodule
 
-module tb_phy;
+module phy_tb;
     wire vdd = 1, vss = 0;
     reg reset = 1;
 

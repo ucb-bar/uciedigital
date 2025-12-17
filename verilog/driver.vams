@@ -46,7 +46,7 @@ module driver (
     end
 endmodule
 
-module tb_driver_data;
+module driver_data_tb;
     localparam CYCLES = 16;    // number of test cycles
     reg din;
     reg [`DRIVER_CTL_BITS-1:0] pu_ctl, pd_ctlb;
@@ -100,7 +100,7 @@ module tb_driver_data;
     end
 endmodule
 
-module tb_driver_impedance;
+module driver_impedance_tb;
     // TODO: Verify step size
     reg din;
     reg [`DRIVER_CTL_BITS-1:0] pu_ctl, pd_ctlb;

@@ -27,21 +27,21 @@ mod tests {
     #[test]
     fn ser21() -> Result<()> {
         let work_dir = out_dir("ser21");
-        simulate(SRC_FILES, "tb_ser21", &work_dir)?;
+        simulate(SRC_FILES, "ser21_tb", &work_dir)?;
         Ok(())
     }
 
     #[test]
     fn tree_ser32() -> Result<()> {
         let work_dir = out_dir("tree_ser32");
-        simulate(SRC_FILES, "tb_ser", &work_dir)?;
+        simulate(SRC_FILES, "ser_tb", &work_dir)?;
         Ok(())
     }
 
     #[test]
     fn driver_data() -> Result<()> {
         let work_dir = out_dir("driver_impedance");
-        simulate(SRC_FILES, "tb_driver_data", &work_dir)?;
+        simulate(SRC_FILES, "driver_data_tb", &work_dir)?;
         let output = read_to_string(work_dir.join("xrun.out"))?;
         assert_eq!(
             output.matches("Error").count(),
@@ -54,7 +54,7 @@ mod tests {
     #[test]
     fn driver_impedance() -> Result<()> {
         let work_dir = out_dir("driver_impedance");
-        simulate(SRC_FILES, "tb_driver_impedance", &work_dir)?;
+        simulate(SRC_FILES, "driver_impedance_tb", &work_dir)?;
         let output = read_to_string(work_dir.join("xrun.out"))?;
         assert_eq!(
             output.matches("Error").count(),
