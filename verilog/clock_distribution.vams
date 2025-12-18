@@ -57,8 +57,8 @@
 //   clock_frequency              - Clock frequency for noise modeling (default: 8GHz)
 //   propagation_delay_mu         - Mean propagation delay (default: 198ps)
 //   propagation_delay_sigma      - Std deviation of propagation delay (default: 541fs)
-//   white_noise_floor_dBcHz      - White phase noise floor (default: -139.9 dBc/Hz)
-//   flicker_noise_1Hz_dBcHz      - Flicker phase noise at 1Hz (default: -77.2 dBc/Hz)
+//   white_noise_floor_dBcHz      - White phase noise floor (default: -150 dBc/Hz)
+//   flicker_noise_1Hz_dBcHz      - Flicker phase noise at 1Hz (default: -100 dBc/Hz)
 //
 // ============================================================================
 
@@ -70,10 +70,10 @@ module clocking_distribution(clk_in, clk_out);
 
     parameter real vdd = 0.75;
     parameter real clock_frequency = 8G; // clock frequency for noise modeling
-    parameter real white_noise_floor_dBcHz = -139.9; 
-    parameter real flicker_noise_1Hz_dBcHz = -77.2; 
-    parameter real propagation_delay_mu = 198p;
-    parameter real propagation_delay_sigma = 541f;
+    parameter real white_noise_floor_dBcHz = -150; 
+    parameter real flicker_noise_1Hz_dBcHz = -100; 
+    parameter real propagation_delay_mu = 100p;
+    parameter real propagation_delay_sigma = 100f;
 
     // Static delays for each of the 16 lanes (local mismatch)
     real lane_delay[0:15];
