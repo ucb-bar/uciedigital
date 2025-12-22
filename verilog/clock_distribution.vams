@@ -57,27 +57,27 @@
 //   clock_frequency              - Clock frequency for noise modeling (default: 8GHz)
 //   propagation_delay_mu         - Mean propagation delay (default: 198ps)
 //   propagation_delay_sigma      - Std deviation of propagation delay (default: 541fs)
-//   white_noise_floor_dBcHz      - White phase noise floor (default: -150 dBc/Hz)
-//   flicker_noise_1Hz_dBcHz      - Flicker phase noise at 1Hz (default: -100 dBc/Hz)
+//   white_noise_floor_dBcHz      - White phase noise floor (default: -139.9 dBc/Hz)
+//   flicker_noise_1Hz_dBcHz      - Flicker phase noise at 1Hz (default: -77.2 dBc/Hz)
 //
 // ============================================================================
 
 `include "constants.vams"
+`include "disciplines.vams"
 
-module clocking_distribution(clk_in, clk_out);
+module clocking_distribution_model(clk_in, clk_out);
     input clk_in; electrical clk_in;
     output [15:0] clk_out; electrical [15:0] clk_out;
 
     parameter real vdd = 0.75;
     parameter real clock_frequency = 8G; // clock frequency for noise modeling
-    parameter real white_noise_floor_dBcHz = -150; 
-    parameter real flicker_noise_1Hz_dBcHz = -100; 
-    parameter real propagation_delay_mu = 100p;
-    parameter real propagation_delay_sigma = 100f;
+    parameter real white_noise_floor_dBcHz = -139.9; 
+    parameter real flicker_noise_1Hz_dBcHz = -77.2; 
+    parameter real propagation_delay_mu = 198p;
+    parameter real propagation_delay_sigma = 541f;
 
     // Static delays for each of the 16 lanes (local mismatch)
     real lane_delay[0:15];
-    real delay_max;
     
     // Common noise variables
     integer seed;
@@ -88,7 +88,10 @@ module clocking_distribution(clk_in, clk_out);
     real flicker_noise_1Hz_linear;
     real flicker_noise_td;
     real total_phase_noise;
-    real total_time_noise;
+    real total_time_noise_sampled;
+    
+    // Output state tracking for each lane
+    integer sign[0:15];
     
     genvar j;
 
@@ -96,15 +99,14 @@ module clocking_distribution(clk_in, clk_out);
         // Initialize random seed and lane delays once at start
         @(initial_step) begin
             seed = $random + $abstime * 1e12;
+            total_time_noise_sampled = 0;
             
             // Generate 16 random delays from Gaussian distribution N(μ, σ²)
             for (i = 0; i < 16; i = i + 1) begin
                 lane_delay[i] = propagation_delay_mu + propagation_delay_sigma * $rdist_normal(seed, 0, 1);
+                sign[i] = 0;
             end
         end
-        
-        // Calculate maximum delay for absdelay function
-        delay_max = propagation_delay_mu + 5 * propagation_delay_sigma; // 5σ coverage
         
         // Model common phase noise (shared across all outputs)
         white_noise_floor_linear = 10**(white_noise_floor_dBcHz/10);
@@ -117,11 +119,29 @@ module clocking_distribution(clk_in, clk_out);
         flicker_noise_td = flicker_noise(flicker_noise_1Hz_linear, 1);
         
         total_phase_noise = white_noise_filtered + flicker_noise_td;
-        total_time_noise = total_phase_noise / (2 * `M_PI * clock_frequency);
         
-        // Distribute clock to 16 outputs with static delays + common jitter
+        // Sample noise discretely at falling edges (common for all lanes)
+        @(cross(V(clk_in) - vdd/2, -1)) begin
+            total_time_noise_sampled = total_phase_noise / (2 * `M_PI * clock_frequency);
+        end
+        
+        // Track rising edges for all lanes
+        @(cross(V(clk_in) - vdd/2, 1)) begin
+            for (i = 0; i < 16; i = i + 1) begin
+                sign[i] = 1;
+            end
+        end
+        
+        // Track falling edges for all lanes
+        @(cross(V(clk_in) - vdd/2, -1)) begin
+            for (i = 0; i < 16; i = i + 1) begin
+                sign[i] = 0;
+            end
+        end
+        
+        // Distribute clock to 16 outputs with static delays + common sampled jitter
         for (j = 0; j < 16; j = j + 1) begin
-            V(clk_out[j]) <+ absdelay(V(clk_in), lane_delay[j] + total_time_noise, delay_max);
+            V(clk_out[j]) <+ transition(vdd * sign[j], lane_delay[j] + total_time_noise_sampled, 5p);
         end
     end
 
