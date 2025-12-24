@@ -9,4 +9,4 @@ amsd {
     ie vsup=0.75 tr=5p tf=5p rout=0
 }
 
-tran tran stop=100n annotate=status
+tran tran stop=100n noisefmax=64G noiseseed=1 annotate=status
