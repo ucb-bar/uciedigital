@@ -68,6 +68,7 @@ bbpll:
 		$(SUBCIRCUITS_DIR)/model_*.vams \
 		$(BBPLL_TB) \
 		-top bbpll_tb \
+		-ams clocking_ams_control_file.scs \
 		-input $(BBPLL_PROBE)
 	@echo "BBPLL simulation completed. Waveforms: bbpll_waves.shm"
 	@echo ""
@@ -82,7 +83,7 @@ dcdl:
 		$(DCDL_SRC) \
 		$(DCDL_TB) \
 		-top dcdl_tb \
-		-ams amscf.scs \
+		-ams clocking_ams_control_file.scs \
 		-input $(DCDL_PROBE)
 	@echo "DCDL simulation completed. Waveforms: dcdl_waves.shm"
 	@echo ""
@@ -97,6 +98,7 @@ s2d:
 		$(S2D_SRC) \
 		$(S2D_TB) \
 		-top s2d_tb \
+		-ams clocking_ams_control_file.scs \
 		-input $(S2D_PROBE)
 	@echo "S2D simulation completed. Waveforms: s2d_waves.shm"
 	@echo ""
