@@ -44,16 +44,19 @@ CONSTANTS := $(VAMS_DIR)/constants.vams
 BBPLL_SRC := $(VAMS_DIR)/bbpll.vams
 DCDL_SRC := $(VAMS_DIR)/dcdl.vams
 S2D_SRC := $(VAMS_DIR)/s2d.vams
+CLOCK_DIST_SRC := $(VAMS_DIR)/clock_distribution.vams
 
 # Testbenches
 BBPLL_TB := $(TB_DIR)/bbpll_tb.vams
 DCDL_TB := $(TB_DIR)/dcdl_tb.vams
 S2D_TB := $(TB_DIR)/s2d_tb.vams
+CLOCK_DIST_TB := $(TB_DIR)/clock_distribution_tb.vams
 
 # Probe files
 BBPLL_PROBE := bbpll_probe.tcl
 DCDL_PROBE := dcdl_probe.tcl
 S2D_PROBE := s2d_probe.tcl
+CLOCK_DIST_PROBE := clock_distribution_probe.tcl
 
 # ============================================================================
 # Targets
@@ -103,6 +106,21 @@ s2d:
 	@echo "S2D simulation completed. Waveforms: s2d_waves.shm"
 	@echo ""
 
+# Clock Distribution testbench
+clock_dist:
+	@echo "=========================================="
+	@echo "Running Clock Distribution Testbench with xrun..."
+	@echo "=========================================="
+	$(XRUN) $(XRUN_OPTS) $(INCLUDES) \
+		$(CONSTANTS) \
+		$(CLOCK_DIST_SRC) \
+		$(CLOCK_DIST_TB) \
+		-top clock_distribution_tb \
+		-ams clocking_ams_control_file.scs \
+		-input $(CLOCK_DIST_PROBE)
+	@echo "Clock Distribution simulation completed. Waveforms: clock_distribution_waves.shm"
+	@echo ""
+
 # GUI versions
 bbpll-gui:
 	@echo "=========================================="
@@ -141,6 +159,18 @@ s2d-gui:
 		-gui \
 		-input $(S2D_PROBE)
 
+clock_dist-gui:
+	@echo "=========================================="
+	@echo "Running Clock Distribution Testbench with GUI..."
+	@echo "=========================================="
+	$(XRUN) $(XRUN_OPTS) $(INCLUDES) \
+		$(CONSTANTS) \
+		$(CLOCK_DIST_SRC) \
+		$(CLOCK_DIST_TB) \
+		-top clock_distribution_tb \
+		-gui \
+		-input $(CLOCK_DIST_PROBE)
+
 # Clean all simulation outputs
 clean:
 	@echo "Cleaning simulation outputs..."
@@ -158,9 +188,11 @@ help:
 	@echo "  make bbpll        - Run BBPLL testbench"
 	@echo "  make dcdl         - Run DCDL testbench"
 	@echo "  make s2d          - Run S2D testbench"
+	@echo "  make clock_dist   - Run Clock Distribution testbench"
 	@echo "  make bbpll-gui    - Run BBPLL with SimVision GUI"
 	@echo "  make dcdl-gui     - Run DCDL with SimVision GUI"
 	@echo "  make s2d-gui      - Run S2D with SimVision GUI"
+	@echo "  make clock_dist-gui - Run Clock Distribution with SimVision GUI"
 	@echo "  make clean        - Remove all simulation outputs"
 	@echo "  make help         - Show this help message"
 	@echo ""
@@ -168,6 +200,7 @@ help:
 	@echo "  BBPLL: $(BBPLL_TB)"
 	@echo "  DCDL:  $(DCDL_TB)"
 	@echo "  S2D:   $(S2D_TB)"
+	@echo "  Clock Distribution: $(CLOCK_DIST_TB)"
 
 	@echo "=========================================="
 
