@@ -18,6 +18,7 @@ module phy(
 
 // TODO: add back after PLL model simulates faster and/or 
 // jitter simulation is needed
+// FIXME(Di): If you use the PLL model, make sure to turn on simulation noise and set the simulation time > 15us (which is the PLL lock time).  
 // bbpll pll(
 //     .reset(intf.pll_reset),
 //     .clk_out(intf.pll_clk_out),
@@ -101,7 +102,7 @@ module phy_tb;
     );
 
     assign intf.pll_reset = reset;
-    assign intf.pll_Dctrl_value = 1;
+    assign intf.pll_Dctrl_value = 1; // FIXME(Di): pll_Dctrl_value is an output showing the internal locking status of the PLL, so don't tie it to 1.
 
     assign intf.sb_txdata.vdd = vdd;
     assign intf.sb_txdata.vss = vss;
