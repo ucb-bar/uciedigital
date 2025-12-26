@@ -1,8 +1,13 @@
 XRUN := xrun
 XRUN_OPTS := -sv_ms \
+             -dmsaoi \
              -timescale 1ps/1fs \
              -access +rwc \
-             -iereport
+             -iereport \
+			 -plusperf \
+			 -64bit \
+			 -spectre_args "+preset=cx +mt=32" \
+			 -CFLAGS "-std=c++11 -g"
 VAMS_DIR := ../verilog
 # SPECTRE_HOME := /tools/cadence/SPECTRE/SPECTRE251
 # XCELIUM_HOME := /tools/cadence/XCELIUM/XCELIUM2409.006/
@@ -19,6 +24,8 @@ TX_VAMS := $(VAMS_DIR)/tx.vams
 RX_SRC := $(VAMS_DIR)/rx.sv
 RX_VAMS := $(VAMS_DIR)/rx.vams
 PHY_SRC := $(VAMS_DIR)/phy.sv
+# bbpll.vams, dcdl.vams, s2d.vams, clock_distribution.vams
+CLOCKING_SRC := $(VAMS_DIR)/dcdl.vams $(VAMS_DIR)/s2d.vams $(VAMS_DIR)/clock_distribution.vams
 
 
 phy:
@@ -35,6 +42,7 @@ phy:
 		$(TX_SRC) \
 		$(RX_SRC) \
 		$(PHY_SRC) \
+		$(CLOCKING_SRC) \
 		amscf.scs \
 		-reflib $(XCELIUM_HOME)/tools.lnx86/affirma_ams/etc/connect_lib/connectLib:uCR \
 		-amsconnrules uCR \
