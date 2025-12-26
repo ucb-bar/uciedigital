@@ -19,6 +19,7 @@ module phy(
 // TODO: add back after PLL model simulates faster and/or 
 // jitter simulation is needed
 // FIXME(Di): If you use the PLL model, make sure to turn on simulation noise and set the simulation time > 15us (which is the PLL lock time).  
+// NOTE(Di): It's pretty slow to lock the PLL compared to other parts of the PHY.
 // bbpll pll(
 //     .reset(intf.pll_reset),
 //     .clk_out(intf.pll_clk_out),
@@ -40,10 +41,12 @@ clocking_distribution_model #(
 wire deskewed_clk, deskewed_clkp, deskewed_clkn;
 dcdl #(
     .delay_gain(0),
+    // FIXME(Di): set the gain for DCDL 
     .delay_offset(`CLK_DIST_DELAY_MU + `CLK_PERIOD/4)
 ) dcdl_inst(
     .clk_in(intf.pll_clk_out),
-    .dl_ctrl(0),
+    // TODO(Di): connect the control signal to the main LogPHY controller
+    .dl_ctrl(0), 
     .clk_out(deskewed_clk)
 );
 
@@ -64,6 +67,7 @@ assign intf.txtrk.clkn = deskewed_clkn;
 genvar i;
 generate
     for(i = 0; i < `LANES; i++) begin
+        // TODO(Di): DCC?
         s2d s2d_inst(
             .clk_in(txclk_sed[i]),
             .clk_outp(intf.txdata[i].clkp),
@@ -79,6 +83,7 @@ txdata_tile txtrk_tile(.intf(intf.txtrk));
 
 generate
     for(i = 0; i < `LANES; i++) begin
+        // TODO(Di): perform clock distribution on RX too
         rxdata_tile rxdata_tile(.intf(intf.rxdata[i]));
     end
 endgenerate
