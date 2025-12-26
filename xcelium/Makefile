@@ -1,11 +1,11 @@
 XRUN := xrun
-XRUN_OPTS := -64bit \
+XRUN_OPTS := -sv_ms \
              -timescale 1ps/1fs \
              -access +rwc \
-             -sv_ms
+             -iereport
 VAMS_DIR := ../verilog
-SPECTRE_HOME := /tools/cadence/SPECTRE/SPECTRE251
-AMSHOME := /tools/cadence/XCELIUM/XCELIUM2409.006/tools.lnx86/affirma_ams
+# SPECTRE_HOME := /tools/cadence/SPECTRE/SPECTRE251
+# XCELIUM_HOME := /tools/cadence/XCELIUM/XCELIUM2409.006/
 INCLUDES := -incdir $(VAMS_DIR) -incdir $(SPECTRE_HOME)/tools.lnx86/spectre/etc/ahdl
 PHY_PROBE := probe.tcl
 
@@ -25,30 +25,25 @@ phy:
 	@echo "=========================================="
 	@echo "Running UCIePHY Testbench with xrun..."
 	@echo "=========================================="
-	$(XRUN) -compile -ams $(XRUN_OPTS) $(INCLUDES) \
-		-xmlibdirname worklib \
+	$(XRUN) $(XRUN_OPTS) \
 		$(DISCIPLINES) \
 		$(CONSTANTS) \
 		$(PRIMITIVES_VAMS) \
 		$(TX_VAMS) \
 		$(RX_VAMS) \
-		-reflib $(AMSHOME)/etc/connect_lib/connectLib:uCR
-	$(XRUN) -compile -sv $(XRUN_OPTS) $(INCLUDES) -setdiscipline \
-		-xmlibdirname worklib \
-		$(CONSTANTS) \
 		$(PRIMITIVES_SV) \
 		$(TX_SRC) \
 		$(RX_SRC) \
-		$(PHY_SRC)
-	$(XRUN) -elaborate $(XRUN_OPTS) \
-		-ams amscf.scs \
-		-amsconnrules uCR -xmlibdirname worklib -top phy_tb 
-	# Run simulation using the elaborated library (worklib)
-	$(XRUN) $(XRUN_OPTS) -xmlibdirname worklib -top phy_tb -input $(PHY_PROBE)
+		$(PHY_SRC) \
+		amscf.scs \
+		-reflib $(XCELIUM_HOME)/tools.lnx86/affirma_ams/etc/connect_lib/connectLib:uCR \
+		-amsconnrules uCR \
+		-top phy_tb \
+		-input $(PHY_PROBE)
 	@echo "UCIePHY simulation completed. Waveforms: phy_waves.shm"
 	@echo ""
 
 clean:
 	@echo "Cleaning simulation outputs..."
-	@rm -rf worklib *.log *.shm *.diag INCA_libs xcelium.d .simvision xrun.history .cadence worklibxrun
+	@rm -rf worklib *.log *.shm *.diag INCA_libs xcelium.d .simvision xrun.history .cadence worklibxrun amscf.ams
 	@echo "Clean complete."
