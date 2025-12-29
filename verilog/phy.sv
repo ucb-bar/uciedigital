@@ -33,36 +33,36 @@ wire [`LANES-1:0] txclk_sed;
 clocking_distribution_model #(
     .propagation_delay_mu(`CLK_DIST_DELAY_MU),
     .propagation_delay_sigma(`CLK_DIST_DELAY_SIGMA)
-)   clk_dist_inst(
+)   clk_dist_inst_tx(
     .clk_in(intf.pll_clk_out),
     .clk_out(txclk_sed)
 );
 
-wire deskewed_clk, deskewed_clkp, deskewed_clkn;
+wire deskewed_clk_tx, deskewed_clkp_tx, deskewed_clkn_tx;
 dcdl #(
     .delay_gain(0),
     // FIXME(Di): set the gain for DCDL 
-    .delay_offset(`CLK_DIST_DELAY_MU + `CLK_PERIOD/4)
+    .delay_offset(2 * `CLK_DIST_DELAY_MU + `CLK_PERIOD/4)
 ) dcdl_inst(
     .clk_in(intf.pll_clk_out),
     // TODO(Di): connect the control signal to the main LogPHY controller
     .dl_ctrl(0), 
-    .clk_out(deskewed_clk)
+    .clk_out(deskewed_clk_tx)
 );
 
 s2d s2d_clklane_inst(
-    .clk_in(deskewed_clk),
-    .clk_outp(deskewed_clkp),
-    .clk_outn(deskewed_clkn)
+    .clk_in(deskewed_clk_tx),
+    .clk_outp(deskewed_clkp_tx),
+    .clk_outn(deskewed_clkn_tx)
 );
-assign intf.txclkp.clkp = deskewed_clkp;
-assign intf.txclkp.clkn = deskewed_clkn;
-assign intf.txclkn.clkp = deskewed_clkp;
-assign intf.txclkn.clkn = deskewed_clkn;
-assign intf.txval.clkp = deskewed_clkp;
-assign intf.txval.clkn = deskewed_clkn;
-assign intf.txtrk.clkp = deskewed_clkp;
-assign intf.txtrk.clkn = deskewed_clkn;
+assign intf.txclkp.clkp = deskewed_clkp_tx;
+assign intf.txclkp.clkn = deskewed_clkn_tx;
+assign intf.txclkn.clkp = deskewed_clkp_tx;
+assign intf.txclkn.clkn = deskewed_clkn_tx;
+assign intf.txval.clkp = deskewed_clkp_tx;
+assign intf.txval.clkn = deskewed_clkn_tx;
+assign intf.txtrk.clkp = deskewed_clkp_tx;
+assign intf.txtrk.clkn = deskewed_clkn_tx;
 
 genvar i;
 generate
@@ -81,9 +81,19 @@ txdata_tile txclkn_tile(.intf(intf.txclkn));
 txdata_tile txval_tile(.intf(intf.txval));
 txdata_tile txtrk_tile(.intf(intf.txtrk));
 
+wire [`LANES-1:0] rxclk_dist_sed;
+clocking_distribution_model #(
+    .propagation_delay_mu(`CLK_DIST_DELAY_MU),
+    .propagation_delay_sigma(`CLK_DIST_DELAY_SIGMA)
+)   clk_dist_inst_rx(
+    .clk_in(intf.rxclkp.clkout),
+    .clk_out(rxclk_dist_sed)
+);
+
 generate
     for(i = 0; i < `LANES; i++) begin
-        // TODO(Di): perform clock distribution on RX too
+        // perform clock distribution on RX too
+        assign intf.rxdata[i].clk = rxclk_dist_sed[i];
         rxdata_tile rxdata_tile(.intf(intf.rxdata[i]));
     end
 endgenerate
@@ -178,7 +188,6 @@ module phy_tb;
 
             assign intf.rxdata[i].vdd = vdd;
             assign intf.rxdata[i].vss = vss;
-            assign intf.rxdata[i].clk = intf.rxclkp.clkout;
             assign intf.rxdata[i].rstb = ~reset;
             assign intf.rxdata[i].zen = 1;
             assign intf.rxdata[i].zctl = 0;

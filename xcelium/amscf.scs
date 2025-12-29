@@ -10,6 +10,6 @@ amsd {
 }
 
 
-* tran tran stop=1u noisefmax=64G noiseseed=32 annotate=status
+tran tran stop=1u noisefmax=64G noiseseed=32 annotate=status
 // to disable noise, comment the above line and uncomment the line below
-tran tran stop=1u annotate=status
+* tran tran stop=1u annotate=status
