@@ -6,7 +6,7 @@ XRUN_OPTS := -sv_ms \
              -iereport \
 			 -plusperf \
 			 -64bit \
-			 -spectre_args "+preset=cx +mt=32" \
+			 -spectre_args "+preset=mx +mt=32" \
 			 -CFLAGS "-std=c++11 -g"
 VAMS_DIR := ../verilog
 # SPECTRE_HOME := /tools/cadence/SPECTRE/SPECTRE251
