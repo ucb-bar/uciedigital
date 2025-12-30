@@ -86,7 +86,8 @@ clocking_distribution_model #(
     .propagation_delay_mu(`CLK_DIST_DELAY_MU),
     .propagation_delay_sigma(`CLK_DIST_DELAY_SIGMA)
 )   clk_dist_inst_rx(
-    .clk_in(intf.rxclkp.clkout),
+    .clk_in(rxclkp_tile.afe.dout), // HACK(Di): explicitly call the AFE output
+//    .clk_in(intf.pll_clk_out),
     .clk_out(rxclk_dist_sed)
 );
 
@@ -303,7 +304,7 @@ module phy_tb;
     wire [2**`SERDES_STAGES-1:0] expected_a = {2**(`SERDES_STAGES-1){2'b01}};
     wire [2**`SERDES_STAGES-1:0] expected_b = {2**(`SERDES_STAGES-1){2'b10}};
     initial begin
-        #200000;
+        #200000; // FIXME(Di): Do we need to wait this long for reset?
         reset = 0;
         
         #200000;

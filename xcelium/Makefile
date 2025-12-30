@@ -1,16 +1,16 @@
 XRUN := xrun
 XRUN_OPTS := -sv_ms \
              -dmsaoi \
+			 ++aps \
+			 +mt=32 \
              -timescale 1ps/1fs \
              -access +rwc \
              -iereport \
 			 -plusperf \
 			 -64bit \
-			 -spectre_args "+preset=mx +mt=32" \
+			 -spectre_args "++aps +preset=mx +mt=32" \
 			 -CFLAGS "-std=c++11 -g"
 VAMS_DIR := ../verilog
-# SPECTRE_HOME := /tools/cadence/SPECTRE/SPECTRE251
-# XCELIUM_HOME := /tools/cadence/XCELIUM/XCELIUM2409.006/
 INCLUDES := -incdir $(VAMS_DIR) -incdir $(SPECTRE_HOME)/tools.lnx86/spectre/etc/ahdl
 PHY_PROBE := probe.tcl
 
