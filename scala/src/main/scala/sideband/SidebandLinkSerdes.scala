@@ -282,12 +282,11 @@ class SidebandLinkDeserializer(val sbLink_w: Int, val msg_w: Int, val des_timeou
     }                    
   })
 
-    // Packet opcodes without data
-    // If any new packet types without data are added, then add opcode here.
+  // Packet opcodes without data
+  // If any new packet types without data are added, then add opcode here.
   val pkt_type_wo_data =  Seq(SBMsgOpcode.MessageWithoutData, 
                               SBMsgOpcode.ManagementPortMsgWithoutData)
 
-  
   // Note: 
   //  - This clock stops toggling when there's no data being sent.
   //  - Data is sampled at the negative edge.
@@ -373,10 +372,9 @@ class SidebandLinkDeserializer(val sbLink_w: Int, val msg_w: Int, val des_timeou
 }
 
 object MainSBSerdes extends App {
-
   ChiselStage.emitSystemVerilogFile(
     new SidebandLinkSerDes(new SidebandParams()),
-    args = Array("-td", "./generators/ucie/generatedVerilog/sideband"),
+    args = Array("-td", "./generatedVerilog/sideband"),
     firtoolOpts = Array(
       "-O=debug",
       "-g",
